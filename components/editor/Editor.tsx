@@ -2,11 +2,21 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { RGA, idsEqual } from '../../crdt-engine/src/index';
+import { RGA } from '../../crdt-engine/src/index';
 import type { Op, OpId } from '../../crdt-engine/src/index';
 import { SyncClient, ConnectionStatus } from '../../lib/sync-client';
 import type { PeerInfo } from '../../sync-server/server';
 import { getStoredUserName, setStoredUserName, getStoredRoomName, setStoredRoomName } from '../../lib/room-storage';
+import {
+  parseDocument,
+  serializeDocument,
+  type Block,
+  type BlockType,
+} from '../../lib/document-model';
+import { BlockItem } from './BlockItem';
+import { SlashMenu, type SlashMenuItem } from './SlashMenu';
+import { FormatToolbar } from './FormatToolbar';
+import { DocumentOutline } from './DocumentOutline';
 
 interface EditorProps {
   documentId: string;
@@ -70,25 +80,6 @@ function createRGAWithContent(siteId: string, initialContent?: string): RGA {
   return rga;
 }
 
-function findVisibleOffsetForId(rga: RGA, targetId: OpId | null): number {
-  if (targetId === null) return 0;
-  const nodes = rga.getNodes();
-  let visibleOffset = 0;
-  let lastVisibleBeforeTarget = 0;
-
-  for (const node of nodes) {
-    if (!node.deleted) {
-      visibleOffset++;
-      lastVisibleBeforeTarget = visibleOffset;
-    }
-    if (idsEqual(node.id, targetId)) {
-      return node.deleted ? lastVisibleBeforeTarget : visibleOffset;
-    }
-  }
-
-  return visibleOffset;
-}
-
 export const Editor: React.FC<EditorProps> = ({
   documentId,
   initialRoomName,
@@ -133,9 +124,34 @@ export const Editor: React.FC<EditorProps> = ({
   const [tombstoneCount, setTombstoneCount] = useState<number>(0);
   const [copyFeedback, setCopyFeedback] = useState<'id' | 'link' | null>(null);
   const [showPeersDropdown, setShowPeersDropdown] = useState(false);
+  const [showOutline, setShowOutline] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Focus & UI States
+  const [focusedBlockIndex, setFocusedBlockIndex] = useState<number>(0);
+  const [slashMenuState, setSlashMenuState] = useState<{
+    isOpen: boolean;
+    query: string;
+    blockIndex: number;
+    position?: { top: number; left: number };
+  }>({ isOpen: false, query: '', blockIndex: 0 });
+
+  const [formatToolbarState, setFormatToolbarState] = useState<{
+    isOpen: boolean;
+    blockIndex: number;
+    selection: { start: number; end: number };
+    position: { top: number; left: number };
+  }>({
+    isOpen: false,
+    blockIndex: 0,
+    selection: { start: 0, end: 0 },
+    position: { top: 0, left: 0 },
+  });
+
+  const draggedBlockIndexRef = useRef<number | null>(null);
   const syncClientRef = useRef<SyncClient | null>(null);
+
+  // Parse structured blocks from current RGA text
+  const docState = useMemo(() => parseDocument(text), [text]);
 
   // Derive stable roomName
   const roomName = useMemo(() => {
@@ -156,7 +172,8 @@ export const Editor: React.FC<EditorProps> = ({
   const userColor = initialUserColor || (siteId ? getPeerColor(siteId) : PASTEL_COLORS[0]);
 
   const updateMetrics = useCallback(() => {
-    setText(rga.getText());
+    const currentText = rga.getText();
+    setText(currentText);
     const deletedNodes = rga.getNodes().filter((n) => n.deleted).length;
     setTombstoneCount(deletedNodes);
     if (syncClientRef.current) {
@@ -164,7 +181,7 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, [rga]);
 
-  // SyncClient connection setup - ONLY connects if user is joined and has a valid name and siteId
+  // SyncClient connection setup - ONLY connects if user is joined with a valid display name
   useEffect(() => {
     if (!siteId || !isJoined || !activeUserName) return;
 
@@ -183,45 +200,12 @@ export const Editor: React.FC<EditorProps> = ({
       color: userColor,
       autoConnect: true,
       onRemoteOp: (op: Op) => {
-        const textarea = textareaRef.current;
-        const selStart = textarea?.selectionStart ?? 0;
-        const selEnd = textarea?.selectionEnd ?? 0;
-
-        const anchorStartId = selStart === 0 ? null : rga.idAtVisibleOffset(selStart);
-        const anchorEndId = selEnd === 0 ? null : rga.idAtVisibleOffset(selEnd);
-
         client.applyRemoteOp(rga, op);
         updateMetrics();
-
-        if (textarea && (document.activeElement === textarea || selStart !== 0)) {
-          const newStart = findVisibleOffsetForId(rga, anchorStartId);
-          const newEnd = findVisibleOffsetForId(rga, anchorEndId);
-          queueMicrotask(() => {
-            if (textareaRef.current) {
-              textareaRef.current.setSelectionRange(newStart, newEnd);
-            }
-          });
-        }
       },
       onSyncComplete: (history: readonly Op[]) => {
-        const textarea = textareaRef.current;
-        const selStart = textarea?.selectionStart ?? 0;
-        const selEnd = textarea?.selectionEnd ?? 0;
-        const anchorStartId = selStart === 0 ? null : rga.idAtVisibleOffset(selStart);
-        const anchorEndId = selEnd === 0 ? null : rga.idAtVisibleOffset(selEnd);
-
         client.applyHistory(rga, history);
         updateMetrics();
-
-        if (textarea && (document.activeElement === textarea || selStart !== 0)) {
-          const newStart = findVisibleOffsetForId(rga, anchorStartId);
-          const newEnd = findVisibleOffsetForId(rga, anchorEndId);
-          queueMicrotask(() => {
-            if (textareaRef.current) {
-              textareaRef.current.setSelectionRange(newStart, newEnd);
-            }
-          });
-        }
       },
       onPresenceChange: (activePeers: PeerInfo[]) => {
         setPeers(activePeers.filter((p) => p.siteId !== siteId));
@@ -242,61 +226,388 @@ export const Editor: React.FC<EditorProps> = ({
     };
   }, [documentId, siteId, isJoined, activeUserName, userColor, propServerUrl, rga, updateMetrics]);
 
-  // Handle local user typing
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!siteId || !isJoined) return;
-    const newText = e.target.value;
-    const oldText = rga.getText();
+  /**
+   * Applies changes from a new serialized document string to the underlying RGA CRDT.
+   * Calculates character deltas and broadcasts ops through SyncClient.
+   */
+  const applyDocumentTextDiff = useCallback(
+    (newText: string) => {
+      if (!siteId || !isJoined) return;
+      const oldText = rga.getText();
+      if (newText === oldText) return;
 
-    if (newText === oldText) return;
+      // 1. Calculate common prefix
+      let prefix = 0;
+      while (
+        prefix < oldText.length &&
+        prefix < newText.length &&
+        oldText[prefix] === newText[prefix]
+      ) {
+        prefix++;
+      }
 
-    let prefix = 0;
-    while (
-      prefix < oldText.length &&
-      prefix < newText.length &&
-      oldText[prefix] === newText[prefix]
-    ) {
-      prefix++;
-    }
+      // 2. Calculate common suffix
+      let oldSuffix = oldText.length - 1;
+      let newSuffix = newText.length - 1;
+      while (
+        oldSuffix >= prefix &&
+        newSuffix >= prefix &&
+        oldText[oldSuffix] === newText[newSuffix]
+      ) {
+        oldSuffix--;
+        newSuffix--;
+      }
 
-    let oldSuffix = oldText.length - 1;
-    let newSuffix = newText.length - 1;
-    while (
-      oldSuffix >= prefix &&
-      newSuffix >= prefix &&
-      oldText[oldSuffix] === newText[newSuffix]
-    ) {
-      oldSuffix--;
-      newSuffix--;
-    }
+      const deleteCount = oldSuffix - prefix + 1;
+      const insertText = newText.slice(prefix, newSuffix + 1);
 
-    const deleteCount = oldSuffix - prefix + 1;
-    const insertText = newText.slice(prefix, newSuffix + 1);
+      // Apply deletes
+      for (let i = 0; i < deleteCount; i++) {
+        const targetId = rga.idAtVisibleOffset(prefix + 1);
+        if (targetId) {
+          const op = rga.localDelete(targetId);
+          syncClientRef.current?.sendOperation(op);
+          onOperation?.(op);
+        }
+      }
 
-    for (let i = 0; i < deleteCount; i++) {
-      const targetId = rga.idAtVisibleOffset(prefix + 1);
-      if (targetId) {
-        const op = rga.localDelete(targetId);
+      // Apply inserts
+      for (let i = 0; i < insertText.length; i++) {
+        const char = insertText[i];
+        const afterId = prefix + i === 0 ? null : rga.idAtVisibleOffset(prefix + i);
+        const op = rga.localInsert(afterId, char);
         syncClientRef.current?.sendOperation(op);
         onOperation?.(op);
       }
+
+      updateMetrics();
+    },
+    [siteId, isJoined, rga, onOperation, updateMetrics]
+  );
+
+  // Handle block content change
+  const handleBlockContentChange = (blockIndex: number, newContent: string) => {
+    // Markdown shortcut conversions (e.g. typing '# ' or '- ' at start of block)
+    if (newContent === '# ') {
+      handleConvertBlockType(blockIndex, 'heading1');
+      return;
+    }
+    if (newContent === '## ') {
+      handleConvertBlockType(blockIndex, 'heading2');
+      return;
+    }
+    if (newContent === '### ') {
+      handleConvertBlockType(blockIndex, 'heading3');
+      return;
+    }
+    if (newContent === '- ' || newContent === '* ') {
+      handleConvertBlockType(blockIndex, 'bulleted_list');
+      return;
+    }
+    if (newContent === '1. ') {
+      handleConvertBlockType(blockIndex, 'numbered_list');
+      return;
+    }
+    if (newContent === '[] ' || newContent === '[ ] ') {
+      handleConvertBlockType(blockIndex, 'todo');
+      return;
+    }
+    if (newContent === '> ') {
+      handleConvertBlockType(blockIndex, 'quote');
+      return;
+    }
+    if (newContent === '> 💡 ') {
+      handleConvertBlockType(blockIndex, 'callout');
+      return;
+    }
+    if (newContent === '```') {
+      handleConvertBlockType(blockIndex, 'code');
+      return;
+    }
+    if (newContent === '---') {
+      handleConvertBlockType(blockIndex, 'divider');
+      return;
     }
 
-    for (let i = 0; i < insertText.length; i++) {
-      const char = insertText[i];
-      const afterId = prefix + i === 0 ? null : rga.idAtVisibleOffset(prefix + i);
-      const op = rga.localInsert(afterId, char);
-      syncClientRef.current?.sendOperation(op);
-      onOperation?.(op);
+    // Check for slash menu trigger
+    if (newContent.startsWith('/')) {
+      const rect = document.getElementById(docState.blocks[blockIndex]?.id)?.getBoundingClientRect();
+      setSlashMenuState({
+        isOpen: true,
+        query: newContent,
+        blockIndex,
+        position: rect ? { top: rect.bottom + window.scrollY, left: rect.left + window.scrollX } : undefined,
+      });
+    } else if (slashMenuState.isOpen) {
+      setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
     }
 
-    updateMetrics();
+    const updatedBlocks = [...docState.blocks];
+    if (updatedBlocks[blockIndex]) {
+      updatedBlocks[blockIndex] = { ...updatedBlocks[blockIndex], content: newContent };
+      applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    }
   };
 
-  const handleSelectionChange = () => {
-    if (textareaRef.current && syncClientRef.current) {
-      const cursor = textareaRef.current.selectionStart;
-      syncClientRef.current.sendPresence({ cursor });
+  // Convert block type
+  const handleConvertBlockType = (blockIndex: number, newType: BlockType) => {
+    const updatedBlocks = [...docState.blocks];
+    if (updatedBlocks[blockIndex]) {
+      const current = updatedBlocks[blockIndex];
+      updatedBlocks[blockIndex] = {
+        ...current,
+        type: newType,
+        content: current.content.replace(/^\/[a-z0-9]*\s*/i, '').trim(),
+      };
+      applyDocumentTextDiff(serializeDocument(updatedBlocks));
+      setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Toggle todo checkbox
+  const handleToggleTodo = (blockIndex: number) => {
+    const updatedBlocks = [...docState.blocks];
+    if (updatedBlocks[blockIndex]) {
+      const current = updatedBlocks[blockIndex];
+      updatedBlocks[blockIndex] = {
+        ...current,
+        checked: !current.checked,
+      };
+      applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    }
+  };
+
+  // Insert block below
+  const handleInsertBelow = (blockIndex: number, type: BlockType = 'paragraph') => {
+    const updatedBlocks = [...docState.blocks];
+    const newBlock: Block = {
+      id: `block-insert-${blockIndex + 1}`,
+      type,
+      content: '',
+      rawLine: '',
+      lineIndex: blockIndex + 1,
+    };
+    updatedBlocks.splice(blockIndex + 1, 0, newBlock);
+    applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    setFocusedBlockIndex(blockIndex + 1);
+  };
+
+  // Delete block
+  const handleDeleteBlock = (blockIndex: number) => {
+    if (docState.blocks.length <= 1) {
+      // Keep at least one empty paragraph block
+      const updatedBlocks: Block[] = [
+        {
+          id: 'block-0',
+          type: 'paragraph',
+          content: '',
+          rawLine: '',
+          lineIndex: 0,
+        },
+      ];
+      applyDocumentTextDiff(serializeDocument(updatedBlocks));
+      setFocusedBlockIndex(0);
+      return;
+    }
+
+    const updatedBlocks = [...docState.blocks];
+    updatedBlocks.splice(blockIndex, 1);
+    applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    setFocusedBlockIndex(Math.max(0, blockIndex - 1));
+  };
+
+  // Duplicate block
+  const handleDuplicateBlock = (blockIndex: number) => {
+    const current = docState.blocks[blockIndex];
+    if (!current) return;
+    const updatedBlocks = [...docState.blocks];
+    const duplicated: Block = {
+      ...current,
+      id: `block-dup-${blockIndex + 1}`,
+    };
+    updatedBlocks.splice(blockIndex + 1, 0, duplicated);
+    applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    setFocusedBlockIndex(blockIndex + 1);
+  };
+
+  // Move block up / down
+  const handleMoveBlock = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= docState.blocks.length || fromIndex === toIndex) return;
+    const updatedBlocks = [...docState.blocks];
+    const [moved] = updatedBlocks.splice(fromIndex, 1);
+    updatedBlocks.splice(toIndex, 0, moved);
+    applyDocumentTextDiff(serializeDocument(updatedBlocks));
+    setFocusedBlockIndex(toIndex);
+  };
+
+  // Drag and drop reordering
+  const handleDragStart = (index: number) => {
+    draggedBlockIndexRef.current = index;
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    const fromIndex = draggedBlockIndexRef.current;
+    if (fromIndex !== null && fromIndex !== targetIndex) {
+      handleMoveBlock(fromIndex, targetIndex);
+    }
+    draggedBlockIndexRef.current = null;
+  };
+
+  // Block Keyboard Navigation
+  const handleBlockKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    blockIndex: number
+  ) => {
+    const block = docState.blocks[blockIndex];
+    const target = e.currentTarget;
+
+    // Enter key: create next block or list item
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if (slashMenuState.isOpen) return; // Allow slash menu to handle Enter
+
+      e.preventDefault();
+      // If inside a list/todo and content is empty, convert back to paragraph
+      if (
+        (block.type === 'bulleted_list' || block.type === 'numbered_list' || block.type === 'todo') &&
+        !block.content.trim()
+      ) {
+        handleConvertBlockType(blockIndex, 'paragraph');
+        return;
+      }
+
+      // Preserve list type for next item
+      const nextType =
+        block.type === 'bulleted_list' || block.type === 'numbered_list' || block.type === 'todo'
+          ? block.type
+          : 'paragraph';
+      handleInsertBelow(blockIndex, nextType);
+      return;
+    }
+
+    // Backspace on empty block: convert to paragraph or delete
+    if (e.key === 'Backspace' && target.selectionStart === 0 && target.selectionEnd === 0) {
+      if (block.type !== 'paragraph') {
+        e.preventDefault();
+        handleConvertBlockType(blockIndex, 'paragraph');
+        return;
+      }
+      if (!block.content && docState.blocks.length > 1) {
+        e.preventDefault();
+        handleDeleteBlock(blockIndex);
+        return;
+      }
+    }
+
+    // Arrow Navigation between blocks
+    if (e.key === 'ArrowUp' && target.selectionStart === 0 && blockIndex > 0) {
+      e.preventDefault();
+      setFocusedBlockIndex(blockIndex - 1);
+      return;
+    }
+    if (
+      e.key === 'ArrowDown' &&
+      target.selectionStart === target.value.length &&
+      blockIndex < docState.blocks.length - 1
+    ) {
+      e.preventDefault();
+      setFocusedBlockIndex(blockIndex + 1);
+      return;
+    }
+
+    // Formatting Keyboard Shortcuts (Cmd+B, Cmd+I, Cmd+U, Cmd+K)
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        handleApplyInlineFormat(blockIndex, 'bold');
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        handleApplyInlineFormat(blockIndex, 'italic');
+      } else if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        handleApplyInlineFormat(blockIndex, 'underline');
+      } else if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        handleApplyInlineFormat(blockIndex, 'link');
+      }
+    }
+  };
+
+  // Text selection detection for Floating FormatToolbar
+  const handleSelectText = (
+    e: React.SyntheticEvent<HTMLTextAreaElement | HTMLInputElement>,
+    blockIndex: number
+  ) => {
+    const target = e.currentTarget;
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? 0;
+
+    if (start !== end) {
+      const rect = target.getBoundingClientRect();
+      setFormatToolbarState({
+        isOpen: true,
+        blockIndex,
+        selection: { start, end },
+        position: { top: rect.top + window.scrollY, left: rect.left + (start * 8) },
+      });
+    } else if (formatToolbarState.isOpen) {
+      setFormatToolbarState((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Apply Inline Formatting (Wrap selected text with markdown formatting tags)
+  const handleApplyInlineFormat = (
+    blockIndex: number,
+    formatType: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'link'
+  ) => {
+    const block = docState.blocks[blockIndex];
+    if (!block) return;
+
+    const start = formatToolbarState.selection.start;
+    const end = formatToolbarState.selection.end;
+    const selected = block.content.slice(start, end) || 'text';
+
+    let formatted = selected;
+    switch (formatType) {
+      case 'bold':
+        formatted = `**${selected}**`;
+        break;
+      case 'italic':
+        formatted = `*${selected}*`;
+        break;
+      case 'underline':
+        formatted = `<u>${selected}</u>`;
+        break;
+      case 'strikethrough':
+        formatted = `~~${selected}~~`;
+        break;
+      case 'code':
+        formatted = `\`${selected}\``;
+        break;
+      case 'link':
+        formatted = `[${selected}](https://)`;
+        break;
+    }
+
+    const newContent = block.content.slice(0, start) + formatted + block.content.slice(end);
+    handleBlockContentChange(blockIndex, newContent);
+    setFormatToolbarState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleSlashMenuSelect = (item: SlashMenuItem) => {
+    handleConvertBlockType(slashMenuState.blockIndex, item.type);
+    setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleScrollToBlock = (blockId: string) => {
+    const el = document.getElementById(blockId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const index = docState.blocks.findIndex((b) => b.id === blockId);
+      if (index !== -1) setFocusedBlockIndex(index);
     }
   };
 
@@ -394,8 +705,8 @@ export const Editor: React.FC<EditorProps> = ({
   const totalCollaborators = peers.length + 1;
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl bg-[#faf8f5] text-[#000000] border border-[#e4e4e7] overflow-hidden shadow-sm">
-      {/* Editor Header / Top Workspace Toolbar */}
+    <div className="flex flex-col h-full w-full rounded-2xl bg-[#ffffff] text-[#000000] border border-[#e4e4e7] overflow-hidden shadow-sm">
+      {/* Top Workspace Navigation Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-4 bg-[#faf8f5] border-b border-[#e4e4e7] gap-3">
         {/* Left: Branding, Room Name & Room ID */}
         <div className="flex flex-wrap items-center gap-3">
@@ -424,7 +735,7 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
         </div>
 
-        {/* Right: Status, Collaborators & User Identity */}
+        {/* Right: Autosave Status, Collaborators & User Identity */}
         <div className="flex items-center gap-3">
           {/* Connection Status Pill */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ececf0] text-xs font-medium text-[#666666]">
@@ -439,7 +750,7 @@ export const Editor: React.FC<EditorProps> = ({
             />
             <span>
               {connectionStatus === 'connected'
-                ? 'Connected'
+                ? '✓ Saved'
                 : connectionStatus === 'connecting'
                 ? 'Connecting...'
                 : 'Offline'}
@@ -537,25 +848,89 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
       )}
 
-      {/* Main Textarea Paper Canvas */}
-      <div className="relative flex-1 p-6 sm:p-8 bg-[#ffffff] min-h-[440px]">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={handleTextChange}
-          onSelect={handleSelectionChange}
-          onKeyUp={handleSelectionChange}
-          onClick={handleSelectionChange}
-          placeholder="Start typing to collaborate in real-time... Everyone in this room sees edits instantly."
-          className="w-full h-full min-h-[400px] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed text-[#000000] placeholder-[#666666]/40 selection:bg-[#f8c8b8]"
-          spellCheck={false}
-          autoFocus
-        />
+      {/* Main Workspace Layout (Sidebar Outline + Notion Document Canvas) */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-[500px] relative">
+        {/* Left Table of Contents Sidebar */}
+        <aside className="p-4 border-r border-[#e4e4e7]/60 bg-[#faf8f5]/40 md:w-fit">
+          <DocumentOutline
+            blocks={docState.blocks}
+            onScrollToBlock={handleScrollToBlock}
+            isOpen={showOutline}
+            onToggle={() => setShowOutline((prev) => !prev)}
+          />
+        </aside>
+
+        {/* Center Document Writing Canvas */}
+        <main className="flex-1 max-w-4xl mx-auto w-full p-6 sm:p-12 flex flex-col gap-2">
+          {/* Blocks List */}
+          {docState.blocks.map((block, index) => (
+            <BlockItem
+              key={block.id}
+              block={block}
+              index={index}
+              totalBlocks={docState.blocks.length}
+              isFocused={focusedBlockIndex === index}
+              onFocus={() => setFocusedBlockIndex(index)}
+              onChangeContent={(content) => handleBlockContentChange(index, content)}
+              onKeyDown={(e) => handleBlockKeyDown(e, index)}
+              onSelectText={(e) => handleSelectText(e, index)}
+              onToggleTodo={() => handleToggleTodo(index)}
+              onInsertBelow={(type) => handleInsertBelow(index, type)}
+              onDeleteBlock={() => handleDeleteBlock(index)}
+              onDuplicateBlock={() => handleDuplicateBlock(index)}
+              onMoveUp={() => handleMoveBlock(index, index - 1)}
+              onMoveDown={() => handleMoveBlock(index, index + 1)}
+              onConvertType={(type) => handleConvertBlockType(index, type)}
+              onOpenSlashMenu={(rect) => {
+                setSlashMenuState({
+                  isOpen: true,
+                  query: '',
+                  blockIndex: index,
+                  position: { top: rect.bottom + window.scrollY, left: rect.left + window.scrollX },
+                });
+              }}
+              dragHandleProps={{
+                draggable: true,
+                onDragStart: () => handleDragStart(index),
+                onDragOver: handleDragOver,
+                onDrop: () => handleDrop(index),
+              }}
+            />
+          ))}
+
+          {/* Empty bottom area click to add block */}
+          <div
+            className="flex-1 min-h-[100px] cursor-text py-6"
+            onClick={() => handleInsertBelow(docState.blocks.length - 1, 'paragraph')}
+          />
+        </main>
       </div>
 
+      {/* Floating Slash Command Menu */}
+      {slashMenuState.isOpen && (
+        <SlashMenu
+          query={slashMenuState.query}
+          onSelect={handleSlashMenuSelect}
+          onClose={() => setSlashMenuState((prev) => ({ ...prev, isOpen: false }))}
+          position={slashMenuState.position}
+        />
+      )}
+
+      {/* Floating Formatting Toolbar */}
+      {formatToolbarState.isOpen && (
+        <FormatToolbar
+          position={formatToolbarState.position}
+          currentBlockType={docState.blocks[formatToolbarState.blockIndex]?.type || 'paragraph'}
+          onFormat={(formatType) => handleApplyInlineFormat(formatToolbarState.blockIndex, formatType)}
+          onConvertBlockType={(newType) => handleConvertBlockType(formatToolbarState.blockIndex, newType)}
+        />
+      )}
+
       {/* Editor Footer / Diagnostics Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3 bg-[#faf8f5] border-t border-[#e4e4e7] text-xs text-[#666666] gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3 bg-[#faf8f5] border-t border-[#e4e4e7] text-xs text-[#666666] gap-2 select-none">
         <div className="flex items-center gap-3 font-mono">
+          <span>{docState.blocks.length} blocks</span>
+          <span className="text-[#e4e4e7]">|</span>
           <span>{text.length} chars</span>
           <span className="text-[#e4e4e7]">|</span>
           <span>{rga.getNodes().length} CRDT nodes</span>
