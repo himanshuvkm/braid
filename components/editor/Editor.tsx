@@ -55,18 +55,18 @@ function getClientSiteId(): string {
     if (typeof sessionStorage !== 'undefined') {
       stored = sessionStorage.getItem('braid:siteId');
     }
-  } catch {}
+  } catch { }
 
   cachedClientSiteId = stored || `site-${Math.random().toString(36).substring(2, 8)}`;
   if (typeof sessionStorage !== 'undefined' && !stored) {
     try {
       sessionStorage.setItem('braid:siteId', cachedClientSiteId);
-    } catch {}
+    } catch { }
   }
   return cachedClientSiteId;
 }
 
-const emptySubscribe = () => () => {};
+const emptySubscribe = () => () => { };
 
 function createRGAWithContent(siteId: string, initialContent?: string): RGA {
   const rga = new RGA(siteId);
@@ -665,18 +665,17 @@ export const Editor: React.FC<EditorProps> = ({
               <input
                 id="join-gate-name"
                 type="text"
-                placeholder="e.g. Alice, Rahul, Himanshu"
+                placeholder="e.g. Alice, Rahul, Ajay"
                 value={gateInputName}
                 onChange={(e) => {
                   setGateInputName(e.target.value);
                   if (gateError) setGateError(undefined);
                 }}
                 autoFocus
-                className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${
-                  gateError
+                className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${gateError
                     ? 'border-red-500 focus:ring-2 focus:ring-red-400/20'
                     : 'border-[#e4e4e7] focus:border-[#000000]'
-                }`}
+                  }`}
               />
               {gateError && (
                 <p className="text-[11px] text-red-600 mt-1 font-medium">{gateError}</p>
@@ -740,20 +739,19 @@ export const Editor: React.FC<EditorProps> = ({
           {/* Connection Status Pill */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ececf0] text-xs font-medium text-[#666666]">
             <span
-              className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected'
+              className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
                   ? 'bg-emerald-500'
                   : connectionStatus === 'connecting'
-                  ? 'bg-amber-500 animate-pulse'
-                  : 'bg-neutral-400'
-              }`}
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-neutral-400'
+                }`}
             />
             <span>
               {connectionStatus === 'connected'
                 ? '✓ Saved'
                 : connectionStatus === 'connecting'
-                ? 'Connecting...'
-                : 'Offline'}
+                  ? 'Connecting...'
+                  : 'Offline'}
             </span>
           </div>
 

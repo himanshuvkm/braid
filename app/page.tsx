@@ -86,12 +86,18 @@ export default function Home() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/dashboard"
+            className="text-xs font-bold px-4 py-2 rounded-full bg-[#000000] text-[#ffffff] hover:opacity-90 transition-opacity shadow-xs"
+          >
+            Go to Workspace →
+          </Link>
           <Link
             href="/doc/demo"
-            className="text-xs font-semibold px-4 py-2 rounded-full bg-[#ececf0] text-[#000000] hover:bg-[#e4e4e7] transition-colors"
+            className="text-xs font-semibold px-3.5 py-2 rounded-full bg-[#ececf0] text-[#000000] hover:bg-[#e4e4e7] transition-colors"
           >
-            Live Demo Room →
+            Live Demo
           </Link>
         </div>
       </header>
@@ -135,11 +141,10 @@ export default function Home() {
                 setActiveTab('create');
                 setCreateErrors({});
               }}
-              className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                activeTab === 'create'
+              className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${activeTab === 'create'
                   ? 'bg-[#000000] text-[#ffffff] shadow-sm'
                   : 'text-[#666666] hover:text-[#000000]'
-              }`}
+                }`}
             >
               Create a Room
             </button>
@@ -149,11 +154,10 @@ export default function Home() {
                 setActiveTab('join');
                 setJoinErrors({});
               }}
-              className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                activeTab === 'join'
+              className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${activeTab === 'join'
                   ? 'bg-[#000000] text-[#ffffff] shadow-sm'
                   : 'text-[#666666] hover:text-[#000000]'
-              }`}
+                }`}
             >
               Join a Room
             </button>
@@ -176,9 +180,8 @@ export default function Home() {
                       setCreateRoomName(e.target.value);
                       if (createErrors.roomName) setCreateErrors((prev) => ({ ...prev, roomName: undefined }));
                     }}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${
-                      createErrors.roomName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
-                    }`}
+                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${createErrors.roomName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
+                      }`}
                   />
                   {createErrors.roomName && (
                     <p className="text-[11px] text-red-600 mt-1 font-medium">{createErrors.roomName}</p>
@@ -192,15 +195,14 @@ export default function Home() {
                   <input
                     id="create-user-name"
                     type="text"
-                    placeholder="e.g. Alice, Himanshu"
+                    placeholder="e.g. Alice, Ajay"
                     value={createUserName}
                     onChange={(e) => {
                       setCreateUserName(e.target.value);
                       if (createErrors.userName) setCreateErrors((prev) => ({ ...prev, userName: undefined }));
                     }}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${
-                      createErrors.userName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
-                    }`}
+                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${createErrors.userName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
+                      }`}
                   />
                   {createErrors.userName && (
                     <p className="text-[11px] text-red-600 mt-1 font-medium">{createErrors.userName}</p>
@@ -235,9 +237,8 @@ export default function Home() {
                       setJoinRoomId(e.target.value);
                       if (joinErrors.roomId) setJoinErrors((prev) => ({ ...prev, roomId: undefined }));
                     }}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm font-mono text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${
-                      joinErrors.roomId ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
-                    }`}
+                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm font-mono text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${joinErrors.roomId ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
+                      }`}
                   />
                   {joinErrors.roomId && (
                     <p className="text-[11px] text-red-600 mt-1 font-medium">{joinErrors.roomId}</p>
@@ -251,15 +252,14 @@ export default function Home() {
                   <input
                     id="join-user-name"
                     type="text"
-                    placeholder="e.g. Alice, Himanshu"
+                    placeholder="e.g. Alice, Ajay"
                     value={joinUserName}
                     onChange={(e) => {
                       setJoinUserName(e.target.value);
                       if (joinErrors.userName) setJoinErrors((prev) => ({ ...prev, userName: undefined }));
                     }}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${
-                      joinErrors.userName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
-                    }`}
+                    className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${joinErrors.userName ? 'border-red-500 focus:ring-2 focus:ring-red-400/20' : 'border-[#e4e4e7] focus:border-[#000000]'
+                      }`}
                   />
                   {joinErrors.userName && (
                     <p className="text-[11px] text-red-600 mt-1 font-medium">{joinErrors.userName}</p>
