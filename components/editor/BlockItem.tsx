@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { Block, BlockType } from '../../lib/document-model';
+import { Icons } from '../ui/icons';
 
 interface BlockItemProps {
   block: Block;
@@ -97,22 +98,22 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     <div
       id={block.id}
       data-block-id={block.id}
-      className={`group relative flex items-start gap-2 py-1 px-2 -mx-2 rounded-xl transition-colors ${
-        isFocused ? 'bg-[#faf8f5]/60' : 'hover:bg-[#faf8f5]/40'
+      className={`group relative flex items-start gap-1.5 py-1 px-2 -mx-2 rounded-xl transition-colors ${
+        isFocused ? 'bg-[#f4f3ef]/50' : 'hover:bg-[#f4f3ef]/30'
       }`}
       onDragOver={dragHandleProps?.onDragOver}
       onDrop={dragHandleProps?.onDrop}
     >
-      {/* Left Block Hover Action Toolbar */}
-      <div className="flex items-center gap-0.5 pt-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity select-none shrink-0 w-12 justify-end">
+      {/* Left Block Hover Handle Rail */}
+      <div className="flex items-center gap-0.5 pt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity select-none shrink-0 w-11 justify-end">
         {/* Quick Add Button */}
         <button
           type="button"
           onClick={handlePlusClick}
-          className="w-5 h-5 flex items-center justify-center rounded-md text-[#666666] hover:text-[#000000] hover:bg-[#ececf0] transition-colors text-xs font-bold"
+          className="w-5 h-5 flex items-center justify-center rounded-md text-[#9a9994] hover:text-[#191919] hover:bg-[#eeede8] transition-colors"
           title="Add block below (or type /)"
         >
-          +
+          <Icons.Plus size={12} />
         </button>
 
         {/* Drag Handle & Menu Trigger */}
@@ -122,33 +123,31 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             draggable={dragHandleProps?.draggable}
             onDragStart={dragHandleProps?.onDragStart}
             onClick={() => setShowMenu((prev) => !prev)}
-            className="w-5 h-5 flex items-center justify-center rounded-md text-[#666666] hover:text-[#000000] hover:bg-[#ececf0] transition-colors cursor-grab active:cursor-grabbing text-xs"
-            title="Drag to reorder or click for options"
+            className="w-5 h-5 flex items-center justify-center rounded-md text-[#9a9994] hover:text-[#191919] hover:bg-[#eeede8] transition-colors cursor-grab active:cursor-grabbing"
+            title="Options & Turn into"
           >
-            ⋮⋮
+            <Icons.MoreHorizontal size={13} />
           </button>
 
           {/* Block Actions Menu */}
           {showMenu && (
-            <div className="absolute left-0 top-full mt-1 w-48 p-2 rounded-2xl bg-[#ffffff] border border-[#e4e4e7] shadow-xl z-40 flex flex-col gap-1 text-xs text-[#000000]">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#666666] px-2 py-1">
+            <div className="absolute left-0 top-full mt-1 w-48 p-2 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal z-40 flex flex-col gap-1 text-xs text-[#191919] animate-slide-down">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994] px-2 py-1">
                 Block Actions
               </div>
 
-              {/* Duplicate */}
               <button
                 type="button"
                 onClick={() => {
                   onDuplicateBlock();
                   setShowMenu(false);
                 }}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#faf8f5] text-left transition-colors"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#f4f3ef] text-left transition-colors"
               >
-                <span>📑</span>
+                <Icons.Copy size={13} className="text-[#64635e]" />
                 <span>Duplicate</span>
               </button>
 
-              {/* Move Up */}
               {index > 0 && (
                 <button
                   type="button"
@@ -156,14 +155,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onMoveUp();
                     setShowMenu(false);
                   }}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#faf8f5] text-left transition-colors"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#f4f3ef] text-left transition-colors"
                 >
-                  <span>↑</span>
+                  <Icons.ArrowRight size={13} className="-rotate-90 text-[#64635e]" />
                   <span>Move Up</span>
                 </button>
               )}
 
-              {/* Move Down */}
               {index < totalBlocks - 1 && (
                 <button
                   type="button"
@@ -171,17 +169,16 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onMoveDown();
                     setShowMenu(false);
                   }}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#faf8f5] text-left transition-colors"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#f4f3ef] text-left transition-colors"
                 >
-                  <span>↓</span>
+                  <Icons.ArrowRight size={13} className="rotate-90 text-[#64635e]" />
                   <span>Move Down</span>
                 </button>
               )}
 
-              <div className="h-[1px] bg-[#e4e4e7] my-1" />
+              <div className="h-[1px] bg-[#e8e6e1] my-1" />
 
-              {/* Turn into Submenu */}
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#666666] px-2 py-0.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994] px-2 py-0.5">
                 Turn into
               </div>
               <div className="grid grid-cols-2 gap-1 px-1">
@@ -191,7 +188,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('paragraph');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#f4f3ef] text-left"
                 >
                   Text
                 </button>
@@ -201,7 +198,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('heading1');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#f4f3ef] text-left"
                 >
                   H1
                 </button>
@@ -211,7 +208,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('heading2');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#f4f3ef] text-left"
                 >
                   H2
                 </button>
@@ -221,7 +218,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('heading3');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] font-bold hover:bg-[#f4f3ef] text-left"
                 >
                   H3
                 </button>
@@ -231,7 +228,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('bulleted_list');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#f4f3ef] text-left"
                 >
                   Bullet
                 </button>
@@ -241,7 +238,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('todo');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#f4f3ef] text-left"
                 >
                   To-do
                 </button>
@@ -251,7 +248,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('quote');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#f4f3ef] text-left"
                 >
                   Quote
                 </button>
@@ -261,7 +258,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('callout');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#ececf0] text-left"
+                  className="px-2 py-1 rounded-md text-[11px] hover:bg-[#f4f3ef] text-left"
                 >
                   Callout
                 </button>
@@ -271,15 +268,14 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onConvertType('code');
                     setShowMenu(false);
                   }}
-                  className="px-2 py-1 rounded-md text-[11px] font-mono hover:bg-[#ececf0] text-left col-span-2"
+                  className="px-2 py-1 rounded-md text-[11px] font-mono hover:bg-[#f4f3ef] text-left col-span-2"
                 >
-                  Code Block
+                  Code
                 </button>
               </div>
 
-              <div className="h-[1px] bg-[#e4e4e7] my-1" />
+              <div className="h-[1px] bg-[#e8e6e1] my-1" />
 
-              {/* Delete */}
               <button
                 type="button"
                 onClick={() => {
@@ -288,7 +284,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-red-50 text-red-600 text-left transition-colors"
               >
-                <span>🗑️</span>
+                <Icons.Trash size={13} />
                 <span>Delete Block</span>
               </button>
             </div>
@@ -298,16 +294,11 @@ export const BlockItem: React.FC<BlockItemProps> = ({
 
       {/* Block Content Container */}
       <div className="flex-1 min-w-0">
-        {/* Divider Block */}
         {block.type === 'divider' ? (
-          <div
-            className="py-3 cursor-pointer group/divider"
-            onClick={onFocus}
-          >
-            <hr className="border-t-2 border-[#e4e4e7] group-hover/divider:border-[#000000] transition-colors" />
+          <div className="py-3 cursor-pointer group/divider" onClick={onFocus}>
+            <hr className="border-t border-[#e8e6e1] group-hover/divider:border-[#191919] transition-colors" />
           </div>
         ) : block.type === 'heading1' ? (
-          /* Heading 1 */
           <textarea
             ref={inputRef}
             value={block.content}
@@ -317,11 +308,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             onFocus={onFocus}
             rows={1}
             placeholder="Heading 1"
-            className="w-full resize-none bg-transparent outline-none font-black text-3xl tracking-tight text-[#000000] placeholder-[#666666]/30 leading-snug"
+            className="w-full resize-none bg-transparent outline-none font-bold text-3xl tracking-tight text-[#191919] placeholder-[#9a9994]/40 leading-snug"
             spellCheck={false}
           />
         ) : block.type === 'heading2' ? (
-          /* Heading 2 */
           <textarea
             ref={inputRef}
             value={block.content}
@@ -331,11 +321,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             onFocus={onFocus}
             rows={1}
             placeholder="Heading 2"
-            className="w-full resize-none bg-transparent outline-none font-bold text-2xl tracking-tight text-[#000000] placeholder-[#666666]/30 leading-snug"
+            className="w-full resize-none bg-transparent outline-none font-bold text-2xl tracking-tight text-[#191919] placeholder-[#9a9994]/40 leading-snug"
             spellCheck={false}
           />
         ) : block.type === 'heading3' ? (
-          /* Heading 3 */
           <textarea
             ref={inputRef}
             value={block.content}
@@ -345,22 +334,21 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             onFocus={onFocus}
             rows={1}
             placeholder="Heading 3"
-            className="w-full resize-none bg-transparent outline-none font-bold text-xl tracking-tight text-[#000000] placeholder-[#666666]/30 leading-snug"
+            className="w-full resize-none bg-transparent outline-none font-semibold text-lg tracking-tight text-[#191919] placeholder-[#9a9994]/40 leading-snug"
             spellCheck={false}
           />
         ) : block.type === 'todo' ? (
-          /* Todo Checklist Block */
           <div className="flex items-start gap-2.5">
             <button
               type="button"
               onClick={onToggleTodo}
-              className={`w-4 h-4 mt-1 rounded border flex items-center justify-center text-[10px] font-bold transition-all ${
+              className={`w-4 h-4 mt-1 rounded-md border flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${
                 block.checked
-                  ? 'bg-[#000000] border-[#000000] text-[#ffffff]'
-                  : 'bg-[#ffffff] border-[#666666] hover:border-[#000000]'
+                  ? 'bg-[#191919] border-[#191919] text-[#ffffff]'
+                  : 'bg-[#ffffff] border-[#9a9994] hover:border-[#191919]'
               }`}
             >
-              {block.checked && '✓'}
+              {block.checked && <Icons.Check size={10} />}
             </button>
             <textarea
               ref={inputRef}
@@ -370,17 +358,16 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onSelect={onSelectText}
               onFocus={onFocus}
               rows={1}
-              placeholder="To-do item"
-              className={`flex-1 resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed ${
-                block.checked ? 'line-through text-[#666666]' : ''
+              placeholder="To-do"
+              className={`flex-1 resize-none bg-transparent outline-none text-sm text-[#191919] placeholder-[#9a9994]/40 leading-relaxed ${
+                block.checked ? 'line-through text-[#9a9994]' : ''
               }`}
               spellCheck={false}
             />
           </div>
         ) : block.type === 'bulleted_list' ? (
-          /* Bulleted List */
           <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-tight text-[#666666] select-none">•</span>
+            <span className="text-base leading-tight text-[#64635e] select-none pt-0.5">•</span>
             <textarea
               ref={inputRef}
               value={block.content}
@@ -390,14 +377,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onFocus={onFocus}
               rows={1}
               placeholder="List item"
-              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed"
+              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#191919] placeholder-[#9a9994]/40 leading-relaxed"
               spellCheck={false}
             />
           </div>
         ) : block.type === 'numbered_list' ? (
-          /* Numbered List */
           <div className="flex items-start gap-2">
-            <span className="text-xs font-semibold text-[#666666] select-none pt-0.5 min-w-[1.2rem]">
+            <span className="text-xs font-semibold text-[#64635e] select-none pt-1 min-w-[1.2rem]">
               {index + 1}.
             </span>
             <textarea
@@ -409,13 +395,12 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onFocus={onFocus}
               rows={1}
               placeholder="List item"
-              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed"
+              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#191919] placeholder-[#9a9994]/40 leading-relaxed"
               spellCheck={false}
             />
           </div>
         ) : block.type === 'quote' ? (
-          /* Quote Block */
-          <div className="pl-4 border-l-4 border-[#000000] italic bg-[#faf8f5]/50 py-1.5 rounded-r-xl">
+          <div className="pl-3.5 border-l-2 border-[#191919] py-0.5">
             <textarea
               ref={inputRef}
               value={block.content}
@@ -425,14 +410,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onFocus={onFocus}
               rows={1}
               placeholder="Empty quote"
-              className="w-full resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed"
+              className="w-full resize-none bg-transparent outline-none text-sm text-[#64635e] italic placeholder-[#9a9994]/40 leading-relaxed"
               spellCheck={false}
             />
           </div>
         ) : block.type === 'callout' ? (
-          /* Callout Block */
-          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#faf8f5] border border-[#e4e4e7] shadow-sm">
-            <span className="text-lg select-none">
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#f4f3ef] border border-[#e8e6e1]">
+            <span className="text-base select-none mt-0.5">
               {block.calloutVariant === 'warning'
                 ? '⚠️'
                 : block.calloutVariant === 'success'
@@ -450,14 +434,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onFocus={onFocus}
               rows={1}
               placeholder="Callout text..."
-              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed font-medium"
+              className="flex-1 resize-none bg-transparent outline-none text-sm text-[#191919] placeholder-[#9a9994]/40 leading-relaxed font-medium"
               spellCheck={false}
             />
           </div>
         ) : block.type === 'code' ? (
-          /* Code Block */
-          <div className="rounded-2xl bg-[#18181b] text-[#f4f4f5] p-4 font-mono text-xs shadow-md border border-neutral-800">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-700 select-none">
+          <div className="rounded-2xl bg-[#1e1e1e] text-[#f4f4f5] p-4 font-mono text-xs shadow-sm border border-neutral-800">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-700/80 select-none">
               <span className="text-[11px] font-semibold text-neutral-400">
                 {block.codeLanguage || 'typescript'}
               </span>
@@ -478,12 +461,11 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onFocus={onFocus}
               rows={Math.max(2, block.content.split('\n').length)}
               placeholder="// Write code here..."
-              className="w-full resize-none bg-transparent outline-none font-mono text-xs text-[#f4f4f5] placeholder-neutral-500 leading-relaxed selection:bg-[#6366f1]"
+              className="w-full resize-none bg-transparent outline-none font-mono text-xs text-[#f4f4f5] placeholder-neutral-500 leading-relaxed"
               spellCheck={false}
             />
           </div>
         ) : (
-          /* Standard Paragraph */
           <textarea
             ref={inputRef}
             value={block.content}
@@ -492,8 +474,8 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             onSelect={onSelectText}
             onFocus={onFocus}
             rows={1}
-            placeholder={index === 0 ? 'Start writing, or type / for commands...' : ''}
-            className="w-full resize-none bg-transparent outline-none text-sm text-[#000000] placeholder-[#666666]/30 leading-relaxed"
+            placeholder={index === 0 ? 'Type / for commands...' : ''}
+            className="w-full resize-none bg-transparent outline-none text-sm text-[#191919] placeholder-[#9a9994]/40 leading-relaxed font-normal"
             spellCheck={false}
           />
         )}

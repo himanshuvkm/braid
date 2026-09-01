@@ -4,6 +4,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Editor } from '../editor/Editor';
 import type { User, Project, ProjectRole } from '../../lib/db';
+import { Icons } from '../ui/icons';
+import { useToast } from '../ui/toast';
 
 interface ProjectEditorProps {
   project: Project;
@@ -14,6 +16,7 @@ interface ProjectEditorProps {
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
 
 export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
+  const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>('saved');
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
@@ -123,6 +126,7 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
       }
 
       setShareSuccess(`Invited ${shareEmail} as ${shareRole}`);
+      toast(`Invited ${shareEmail}`);
       setShareEmail('');
       fetchMembers();
     } catch (err: unknown) {
@@ -142,32 +146,42 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
 
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.user.id !== targetUserId));
+        toast('Member removed');
       }
     } catch {}
   };
 
+  const handleCopyShareLink = () => {
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      toast('Share link copied to clipboard');
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#faf8f5]">
+    <div className="flex flex-col min-h-screen bg-[#faf9f6] text-[#191919] selection:bg-[#191919]/10">
       {/* Top Project Navigation & Workspace Bar */}
-      <div className="bg-[#ffffff] border-b border-[#e4e4e7] px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sticky top-0 z-20 shadow-xs">
-        {/* Left: Back to Dashboard & Project Info */}
-        <div className="flex items-center gap-3">
+      <header className="bg-[#faf9f6]/90 backdrop-blur-md border-b border-[#e8e6e1] px-4 sm:px-6 h-14 flex items-center justify-between gap-4 sticky top-0 z-30">
+        {/* Left: Breadcrumbs & Project Info */}
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#faf8f5] hover:bg-[#ececf0] text-xs font-bold text-[#000000] border border-[#e4e4e7] transition-colors shadow-xs"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#64635e] hover:text-[#191919] hover:bg-[#f4f3ef] transition-colors shrink-0"
           >
-            <span>←</span>
-            <span>Dashboard</span>
+            <Icons.ArrowLeft size={13} />
+            <span className="hidden sm:inline">Workspace</span>
           </Link>
 
-          <div className="h-4 w-[1px] bg-[#e4e4e7]" />
+          <span className="text-[#9a9994] text-xs">/</span>
 
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[#000000] tracking-tight">{project.name}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold text-xs sm:text-sm text-[#191919] tracking-tight truncate max-w-[200px] sm:max-w-md">
+              {project.name}
+            </span>
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
                 role === 'OWNER'
-                  ? 'bg-neutral-100 text-neutral-800'
+                  ? 'bg-[#f4f3ef] text-[#191919]'
                   : role === 'EDITOR'
                   ? 'bg-blue-50 text-blue-700'
                   : 'bg-amber-50 text-amber-700'
@@ -179,11 +193,11 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
         </div>
 
         {/* Right: Autosave Status, Share, & User Identity */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Autosave Status Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#faf8f5] border border-[#e4e4e7] text-xs font-medium">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-[11px] font-medium">
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full ${
                 saveStatus === 'saved'
                   ? 'bg-emerald-500'
                   : saveStatus === 'saving'
@@ -193,7 +207,7 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
                   : 'bg-red-500'
               }`}
             />
-            <span className="text-[#666666]">
+            <span className="text-[#64635e]">
               {saveStatus === 'saved'
                 ? '✓ Saved to DB'
                 : saveStatus === 'saving'
@@ -212,25 +226,25 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
                 setShowShareModal(true);
                 fetchMembers();
               }}
-              className="px-3 py-1.5 rounded-full bg-[#000000] text-[#ffffff] text-xs font-bold hover:opacity-90 transition-opacity shadow-xs flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center gap-1.5"
             >
-              <span>👥</span>
+              <Icons.Share size={12} />
               <span>Share</span>
             </button>
           )}
 
           {/* User Profile */}
-          <div className="flex items-center gap-1.5 pl-1">
-            <div className="w-7 h-7 rounded-full bg-[#ececf0] border border-[#e4e4e7] flex items-center justify-center text-xs font-bold">
-              {user.avatar || '👤'}
+          <div className="flex items-center gap-1.5 pl-1 border-l border-[#e8e6e1]">
+            <div className="w-6 h-6 rounded-full bg-[#191919] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
+              {user.avatar || user.name.slice(0, 1).toUpperCase()}
             </div>
-            <span className="text-xs font-bold text-[#000000] hidden sm:inline">{user.name}</span>
+            <span className="text-xs font-medium text-[#191919] hidden md:inline">{user.name}</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Collaborative Block Editor */}
-      <div className="flex-1 p-2 sm:p-6 max-w-6xl mx-auto w-full">
+      {/* Main Collaborative Block Editor Surface */}
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-8 py-8">
         <Editor
           documentId={project.id}
           initialRoomName={project.name}
@@ -242,41 +256,60 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
             triggerAutoSave(newContent);
           }}
         />
-      </div>
+      </main>
 
       {/* Share Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md bg-[#ffffff] border border-[#e4e4e7] rounded-3xl p-6 shadow-xl flex flex-col gap-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-6 sm:p-7 shadow-modal flex flex-col gap-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-[#000000]">Share &quot;{project.name}&quot;</h3>
+              <div>
+                <h3 className="text-base font-bold text-[#191919]">Share &quot;{project.name}&quot;</h3>
+                <p className="text-xs text-[#64635e] mt-0.5">Invite teammates or share a direct link.</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowShareModal(false)}
-                className="text-xs font-bold text-[#666666] hover:text-[#000000]"
+                className="p-1 text-[#64635e] hover:text-[#191919]"
               >
-                ✕
+                <Icons.X size={16} />
+              </button>
+            </div>
+
+            {/* Quick Copy Link */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#f4f3ef] border border-[#e8e6e1]">
+              <div className="flex items-center gap-2 text-xs text-[#191919] font-medium">
+                <Icons.Document size={14} className="text-[#64635e]" />
+                <span>Anyone with project access</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                className="px-3 py-1.5 rounded-xl bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] text-xs font-semibold text-[#191919] transition-all shadow-xs flex items-center gap-1"
+              >
+                <Icons.Copy size={11} />
+                <span>Copy Link</span>
               </button>
             </div>
 
             {/* Invite Form */}
             <form onSubmit={handleShareSubmit} className="flex flex-col gap-3">
-              <label htmlFor="share-email" className="text-xs font-bold text-[#000000]">
-                Invite by Email
+              <label htmlFor="share-email-input" className="text-xs font-semibold text-[#191919]">
+                Invite Collaborator by Email
               </label>
               <div className="flex gap-2">
                 <input
-                  id="share-email"
+                  id="share-email-input"
                   type="email"
                   placeholder="e.g. bob@braid.app"
                   value={shareEmail}
                   onChange={(e) => setShareEmail(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl bg-[#faf8f5] border border-[#e4e4e7] text-xs text-[#000000] outline-none focus:border-[#000000]"
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs text-[#191919] outline-none focus:border-[#191919]"
                 />
                 <select
                   value={shareRole}
                   onChange={(e) => setShareRole(e.target.value as 'EDITOR' | 'VIEWER')}
-                  className="px-3 py-2 rounded-xl bg-[#faf8f5] border border-[#e4e4e7] text-xs font-bold text-[#000000] outline-none"
+                  className="px-3 py-2 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs font-semibold text-[#191919] outline-none"
                 >
                   <option value="EDITOR">Editor</option>
                   <option value="VIEWER">Viewer</option>
@@ -284,7 +317,7 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
                 <button
                   type="submit"
                   disabled={isSharing}
-                  className="px-4 py-2 rounded-xl bg-[#000000] text-[#ffffff] text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 disabled:opacity-50"
                 >
                   Invite
                 </button>
@@ -295,37 +328,37 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
             </form>
 
             {/* Active Members List */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-[#e4e4e7]">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#666666]">
+            <div className="flex flex-col gap-2 pt-2 border-t border-[#e8e6e1]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994]">
                 Collaborators ({members.length + 1})
               </div>
 
               {/* Owner */}
-              <div className="flex items-center justify-between p-2 rounded-xl bg-[#faf8f5]">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#ececf0] flex items-center justify-center text-xs font-bold">
-                    {user.avatar || '👤'}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-[#faf9f6]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-full bg-[#191919] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
+                    {user.avatar || user.name.slice(0, 1).toUpperCase()}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold">{user.name} (You)</span>
-                    <span className="text-[10px] text-[#666666]">{user.email}</span>
+                    <span className="text-xs font-semibold text-[#191919]">{user.name} (You)</span>
+                    <span className="text-[10px] text-[#9a9994]">{user.email}</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold bg-neutral-200 text-neutral-800 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold bg-[#e8e6e1] text-[#191919] px-2 py-0.5 rounded-full uppercase">
                   OWNER
                 </span>
               </div>
 
               {/* Shared Members */}
               {members.map((m) => (
-                <div key={m.user.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-[#faf8f5]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#ececf0] flex items-center justify-center text-xs font-bold">
-                      {m.user.avatar || '👤'}
+                <div key={m.user.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-[#faf9f6]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-[#3b82f6] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
+                      {m.user.avatar || m.user.name.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold">{m.user.name}</span>
-                      <span className="text-[10px] text-[#666666]">{m.user.email}</span>
+                      <span className="text-xs font-semibold text-[#191919]">{m.user.name}</span>
+                      <span className="text-[10px] text-[#9a9994]">{m.user.email}</span>
                     </div>
                   </div>
 
@@ -336,10 +369,10 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
                     <button
                       type="button"
                       onClick={() => handleRemoveMember(m.user.id)}
-                      className="p-1 hover:text-red-600 text-xs"
+                      className="p-1 hover:text-red-600 text-[#9a9994] transition-colors"
                       title="Remove Member"
                     >
-                      ✕
+                      <Icons.X size={12} />
                     </button>
                   </div>
                 </div>

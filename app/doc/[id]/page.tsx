@@ -21,8 +21,8 @@ export default async function DocPage({ params, searchParams }: DocPageProps) {
   const userName = sp.user ? decodeURIComponent(sp.user) : undefined;
 
   return (
-    <div className="min-h-screen bg-[#f4f4f5] text-[#000000] p-4 sm:p-6 lg:p-8 flex flex-col items-center">
-      <div className="w-full max-w-5xl flex flex-col gap-4 flex-1">
+    <div className="min-h-screen bg-[#faf9f6] text-[#191919] p-4 sm:p-6 lg:p-8 flex flex-col items-center selection:bg-[#191919]/10">
+      <div className="w-full max-w-4xl flex flex-col gap-4 flex-1">
         {/* Main Editor Component */}
         <main className="w-full flex-1 flex flex-col min-h-[560px]">
           <Editor

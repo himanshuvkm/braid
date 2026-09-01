@@ -17,6 +17,7 @@ import { BlockItem } from './BlockItem';
 import { SlashMenu, type SlashMenuItem } from './SlashMenu';
 import { FormatToolbar } from './FormatToolbar';
 import { DocumentOutline } from './DocumentOutline';
+import { Icons } from '../ui/icons';
 
 interface EditorProps {
   documentId: string;
@@ -658,57 +659,62 @@ export const Editor: React.FC<EditorProps> = ({
   if (!isJoined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] w-full p-4">
-        <div className="w-full max-w-md rounded-2xl bg-[#faf8f5] border border-[#e4e4e7] p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex flex-col gap-2 text-center">
-            <div className="inline-flex items-center justify-center gap-2 mx-auto px-3 py-1 rounded-full bg-[#ececf0] text-xs font-semibold text-[#666666]">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Live Collaborative Session
+        <div className="w-full max-w-md rounded-3xl bg-[#ffffff] border border-[#e8e6e1] p-8 sm:p-10 shadow-card flex flex-col gap-6 animate-fade-in">
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs mb-1">
+              <Icons.Logo size={18} />
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-[#000000]">Join Room</h2>
-            <div className="flex items-center justify-center gap-1.5 text-xs text-[#666666]">
-              <span className="font-semibold text-[#000000]">{roomName}</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-xs font-medium text-[#64635e]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-glow" />
+              <span>Live Collaborative Session</span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-[#191919] mt-1">Join Room</h2>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-[#64635e]">
+              <span className="font-semibold text-[#191919]">{roomName}</span>
               <span>•</span>
-              <span className="font-mono bg-[#ececf0] px-2 py-0.5 rounded-full">{documentId}</span>
+              <span className="font-mono bg-[#f4f3ef] px-2 py-0.5 rounded-full">{documentId}</span>
             </div>
           </div>
 
           <form onSubmit={handleJoinGateSubmit} className="flex flex-col gap-4">
-            <div>
-              <label htmlFor="join-gate-name" className="block text-xs font-bold text-[#000000] mb-1.5">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="join-gate-name" className="text-xs font-semibold text-[#191919]">
                 Your Name
               </label>
               <input
                 id="join-gate-name"
                 type="text"
-                placeholder="e.g. Alice, Rahul, Ajay"
+                placeholder="e.g. Alice"
                 value={gateInputName}
                 onChange={(e) => {
                   setGateInputName(e.target.value);
                   if (gateError) setGateError(undefined);
                 }}
                 autoFocus
-                className={`w-full px-4 py-2.5 rounded-xl bg-[#ffffff] border text-sm text-[#000000] placeholder-[#666666]/50 outline-none transition-all ${gateError
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border text-sm text-[#191919] placeholder-[#9a9994] outline-none transition-all ${
+                  gateError
                     ? 'border-red-500 focus:ring-2 focus:ring-red-400/20'
-                    : 'border-[#e4e4e7] focus:border-[#000000]'
-                  }`}
+                    : 'border-[#e8e6e1] focus:border-[#191919]'
+                }`}
               />
               {gateError && (
-                <p className="text-[11px] text-red-600 mt-1 font-medium">{gateError}</p>
+                <p className="text-xs text-red-600 font-medium">{gateError}</p>
               )}
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-full bg-[#000000] text-[#ffffff] text-xs font-bold hover:opacity-90 active:scale-[0.99] transition-all shadow-sm flex items-center justify-center gap-1.5 mt-2"
+              className="w-full py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center justify-center gap-1.5 mt-1"
             >
-              <span>Join Room</span>
-              <span>→</span>
+              <span>Join Document</span>
+              <Icons.ArrowRight size={13} />
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-[#e4e4e7]">
-            <Link href="/" className="text-xs text-[#666666] hover:text-[#000000] transition-colors">
-              ← Back to Braid Home
+          <div className="text-center pt-2 border-t border-[#e8e6e1]">
+            <Link href="/" className="text-xs text-[#64635e] hover:text-[#191919] transition-colors inline-flex items-center gap-1">
+              <Icons.ArrowLeft size={12} />
+              <span>Back to Home</span>
             </Link>
           </div>
         </div>
@@ -719,31 +725,35 @@ export const Editor: React.FC<EditorProps> = ({
   const totalCollaborators = peers.length + 1;
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl bg-[#ffffff] text-[#000000] border border-[#e4e4e7] overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full w-full rounded-2xl bg-[#ffffff] text-[#191919] border border-[#e8e6e1] overflow-hidden shadow-card">
       {/* Top Workspace Navigation Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-4 bg-[#faf8f5] border-b border-[#e4e4e7] gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3.5 bg-[#faf9f6] border-b border-[#e8e6e1] gap-3">
         {/* Left: Branding, Room Name & Room ID */}
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/"
-            className="text-base font-black tracking-tight text-[#000000] hover:opacity-75 transition-opacity flex items-center gap-1.5"
+            className="flex items-center gap-1.5 text-sm font-bold tracking-tight text-[#191919] hover:opacity-80 transition-opacity"
             title="Back to Home"
           >
+            <div className="w-5 h-5 rounded-md bg-[#191919] text-[#ffffff] flex items-center justify-center">
+              <Icons.Logo size={11} />
+            </div>
             <span>Braid</span>
-            <span className="text-xs text-[#666666] font-normal">/</span>
           </Link>
 
+          <span className="text-xs text-[#9a9994]">/</span>
+
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[#000000] tracking-tight">{roomName}</span>
-            <div className="flex items-center gap-1 bg-[#ececf0] pl-2.5 pr-1.5 py-0.5 rounded-full text-xs font-mono text-[#666666]">
+            <span className="font-semibold text-xs text-[#191919] tracking-tight">{roomName}</span>
+            <div className="flex items-center gap-1 bg-[#f4f3ef] border border-[#e8e6e1] pl-2 pr-1 py-0.5 rounded-full text-[11px] font-mono text-[#64635e]">
               <span>{documentId}</span>
               <button
                 type="button"
                 onClick={handleCopyId}
-                className="p-1 hover:bg-[#e4e4e7] rounded-full transition-colors text-[10px]"
+                className="p-0.5 hover:bg-[#e8e6e1] rounded-full transition-colors"
                 title="Copy Room ID"
               >
-                {copyFeedback === 'id' ? '✓' : '📋'}
+                {copyFeedback === 'id' ? <Icons.Check size={10} className="text-emerald-600" /> : <Icons.Copy size={10} />}
               </button>
             </div>
           </div>
@@ -752,21 +762,22 @@ export const Editor: React.FC<EditorProps> = ({
         {/* Right: Autosave Status, Collaborators & User Identity */}
         <div className="flex items-center gap-3">
           {/* Connection Status Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ececf0] text-xs font-medium text-[#666666]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-[11px] font-medium">
             <span
-              className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
+              className={`w-1.5 h-1.5 rounded-full ${
+                connectionStatus === 'connected'
                   ? 'bg-emerald-500'
                   : connectionStatus === 'connecting'
-                    ? 'bg-amber-500 animate-pulse'
-                    : 'bg-neutral-400'
-                }`}
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-neutral-400'
+              }`}
             />
-            <span>
+            <span className="text-[#64635e]">
               {connectionStatus === 'connected'
-                ? '✓ Saved'
+                ? '✓ Synced'
                 : connectionStatus === 'connecting'
-                  ? 'Connecting...'
-                  : 'Offline'}
+                ? 'Connecting...'
+                : 'Offline'}
             </span>
           </div>
 
@@ -775,46 +786,46 @@ export const Editor: React.FC<EditorProps> = ({
             <button
               type="button"
               onClick={() => setShowPeersDropdown((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ececf0] hover:bg-[#e4e4e7] text-xs font-semibold text-[#000000] transition-colors"
-              title="View Collaborators"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] hover:border-[#191919] text-[11px] font-semibold text-[#191919] transition-all"
+              title="View Active Collaborators"
             >
-              <span>👥</span>
+              <Icons.Users size={12} className="text-[#64635e]" />
               <span>{totalCollaborators}</span>
             </button>
 
             {/* Collaborators Dropdown Menu */}
             {showPeersDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-56 p-3 rounded-2xl bg-[#ffffff] border border-[#e4e4e7] shadow-lg z-30 flex flex-col gap-2">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#666666] px-1">
+              <div className="absolute right-0 top-full mt-2 w-56 p-3 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal z-30 flex flex-col gap-2 animate-slide-down">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994] px-1">
                   Active in Room ({totalCollaborators})
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {/* Current User */}
-                  <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#faf8f5]">
+                  <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#faf9f6]">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e4e4e7]"
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e8e6e1]"
                       style={{ backgroundColor: userColor }}
                     >
-                      {activeUserName.slice(0, 2).toUpperCase()}
+                      {activeUserName.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold truncate">{activeUserName} (you)</span>
-                      <span className="text-[10px] font-mono text-[#666666]">{siteId}</span>
+                      <span className="text-xs font-semibold truncate">{activeUserName} (you)</span>
+                      <span className="text-[10px] font-mono text-[#9a9994]">{siteId}</span>
                     </div>
                   </div>
 
                   {/* Remote Peers */}
                   {peers.map((peer) => (
-                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[#faf8f5]">
+                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[#faf9f6]">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e4e4e7]"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e8e6e1]"
                         style={{ backgroundColor: peer.color || '#F5C6B0' }}
                       >
-                        {(peer.name || peer.siteId).slice(0, 2).toUpperCase()}
+                        {(peer.name || peer.siteId).slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold truncate">{peer.name || peer.siteId}</span>
-                        <span className="text-[10px] font-mono text-[#666666]">{peer.siteId}</span>
+                        <span className="text-xs font-semibold truncate">{peer.name || peer.siteId}</span>
+                        <span className="text-[10px] font-mono text-[#9a9994]">{peer.siteId}</span>
                       </div>
                     </div>
                   ))}
@@ -825,33 +836,33 @@ export const Editor: React.FC<EditorProps> = ({
 
           {/* Current User Pill */}
           <div
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-black border border-[#e4e4e7] shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-black border border-[#e8e6e1] shadow-xs"
             style={{ backgroundColor: userColor }}
             title={siteId ? `You (${siteId})` : 'You'}
           >
-            <span>{activeUserName}</span>
-            <span className="text-[10px] opacity-75 font-mono">(you)</span>
+            <span className="font-semibold">{activeUserName}</span>
+            <span className="text-[10px] opacity-60 font-mono">(you)</span>
           </div>
 
           {/* Share / Copy Link Button */}
           <button
             type="button"
             onClick={handleCopyLink}
-            className="text-xs font-semibold px-3 py-1 rounded-full bg-[#000000] text-[#ffffff] hover:opacity-90 transition-opacity shadow-sm flex items-center gap-1"
+            className="text-xs font-medium px-3 py-1 rounded-full bg-[#191919] text-[#ffffff] hover:opacity-90 transition-opacity shadow-xs flex items-center gap-1"
             title="Copy Invite Link"
           >
             <span>{copyFeedback === 'link' ? 'Copied!' : 'Share'}</span>
-            <span className="text-[10px]">↗</span>
+            <Icons.Share size={10} />
           </button>
         </div>
       </div>
 
       {/* Offline Warning Banner */}
       {connectionStatus === 'disconnected' && (
-        <div className="px-6 py-2.5 bg-[#fef3c7] border-b border-[#fde68a] text-xs font-medium text-[#92400e] flex items-center justify-between">
+        <div className="px-6 py-2 bg-[#fef3c7] border-b border-[#fde68a] text-xs font-medium text-[#92400e] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>⚠️</span>
-            <span>You are working offline. Edits will sync automatically when reconnected.</span>
+            <span>You are editing offline. Edits will synchronize automatically when reconnected.</span>
           </div>
           {pendingOpsCount > 0 && (
             <span className="font-semibold bg-[#fde68a] px-2 py-0.5 rounded-full text-[11px]">
@@ -862,9 +873,9 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Main Workspace Layout (Sidebar Outline + Notion Document Canvas) */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-[500px] relative">
+      <div className="flex-1 flex flex-col md:flex-row min-h-[520px] relative">
         {/* Left Table of Contents Sidebar */}
-        <aside className="p-4 border-r border-[#e4e4e7]/60 bg-[#faf8f5]/40 md:w-fit">
+        <aside className="p-4 border-r border-[#e8e6e1]/80 bg-[#faf9f6]/50 md:w-fit">
           <DocumentOutline
             blocks={docState.blocks}
             onScrollToBlock={handleScrollToBlock}
@@ -874,7 +885,7 @@ export const Editor: React.FC<EditorProps> = ({
         </aside>
 
         {/* Center Document Writing Canvas */}
-        <main className="flex-1 max-w-4xl mx-auto w-full p-6 sm:p-12 flex flex-col gap-2">
+        <main className="flex-1 max-w-3xl mx-auto w-full p-6 sm:p-12 flex flex-col gap-1.5">
           {/* Blocks List */}
           {docState.blocks.map((block, index) => (
             <BlockItem
@@ -913,7 +924,7 @@ export const Editor: React.FC<EditorProps> = ({
 
           {/* Empty bottom area click to add block */}
           <div
-            className="flex-1 min-h-[100px] cursor-text py-6"
+            className="flex-1 min-h-[120px] cursor-text py-6"
             onClick={() => handleInsertBelow(docState.blocks.length - 1, 'paragraph')}
           />
         </main>
@@ -940,22 +951,22 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Editor Footer / Diagnostics Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3 bg-[#faf8f5] border-t border-[#e4e4e7] text-xs text-[#666666] gap-2 select-none">
-        <div className="flex items-center gap-3 font-mono">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-2.5 bg-[#faf8f5] border-t border-[#e8e6e1] text-[11px] text-[#9a9994] gap-2 select-none font-mono">
+        <div className="flex items-center gap-2.5">
           <span>{docState.blocks.length} blocks</span>
-          <span className="text-[#e4e4e7]">|</span>
+          <span>•</span>
           <span>{text.length} chars</span>
-          <span className="text-[#e4e4e7]">|</span>
+          <span>•</span>
           <span>{rga.getNodes().length} CRDT nodes</span>
-          <span className="text-[#e4e4e7]">|</span>
+          <span>•</span>
           <span>{tombstoneCount} tombstones</span>
         </div>
-        <div className="font-mono text-[11px] text-[#666666]">
-          Site: {siteId || 'initializing...'}
+        <div>
+          Site: {siteId || 'init'}
         </div>
       </div>
     </div>
   );
 };
 
-export default Editor;
+

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '../../../lib/auth';
 import { getProject, getProjectRole } from '../../../lib/db';
 import { ProjectEditor } from '../../../components/project/ProjectEditor';
+import { Icons } from '../../../components/ui/icons';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -22,18 +23,21 @@ export default async function ProjectPage(props: PageProps) {
   const project = getProject(projectId);
   if (!project) {
     return (
-      <div className="min-h-screen bg-[#faf8f5] flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#ffffff] border border-[#e4e4e7] rounded-3xl p-8 text-center shadow-xs flex flex-col items-center gap-4">
-          <span className="text-4xl">🔍</span>
-          <h1 className="text-xl font-bold text-[#000000]">Document Not Found</h1>
-          <p className="text-xs text-[#666666]">
-            The document <span className="font-mono bg-[#ececf0] px-1.5 py-0.5 rounded">{projectId}</span> does not exist or has been deleted.
+      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-6 selection:bg-[#191919]/10">
+        <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-8 sm:p-10 text-center shadow-card flex flex-col items-center gap-4 animate-fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-[#f4f3ef] flex items-center justify-center text-[#64635e]">
+            <Icons.Search size={22} />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-[#191919]">Document Not Found</h1>
+          <p className="text-xs text-[#64635e] leading-relaxed">
+            The document <span className="font-mono bg-[#f4f3ef] px-1.5 py-0.5 rounded text-[#191919]">{projectId}</span> does not exist or has been deleted.
           </p>
           <Link
             href="/dashboard"
-            className="px-5 py-2.5 rounded-full bg-[#000000] text-[#ffffff] text-xs font-bold hover:opacity-90 transition-opacity mt-2"
+            className="px-5 py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs inline-flex items-center gap-1.5 mt-2"
           >
-            ← Back to Dashboard
+            <Icons.ArrowLeft size={12} />
+            <span>Back to Workspace</span>
           </Link>
         </div>
       </div>
@@ -44,21 +48,22 @@ export default async function ProjectPage(props: PageProps) {
   const role = getProjectRole(projectId, user.id);
   if (!role) {
     return (
-      <div className="min-h-screen bg-[#faf8f5] flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#ffffff] border border-[#e4e4e7] rounded-3xl p-8 text-center shadow-xs flex flex-col items-center gap-4">
-          <span className="text-4xl">🔒</span>
-          <h1 className="text-xl font-bold text-[#000000]">Access Denied</h1>
-          <p className="text-xs text-[#666666]">
-            You do not have permission to view or edit this document. Contact the project owner to request access.
-          </p>
-          <div className="flex items-center gap-3 mt-2">
-            <Link
-              href="/dashboard"
-              className="px-5 py-2.5 rounded-full bg-[#000000] text-[#ffffff] text-xs font-bold hover:opacity-90 transition-opacity"
-            >
-              ← Back to Dashboard
-            </Link>
+      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-6 selection:bg-[#191919]/10">
+        <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-8 sm:p-10 text-center shadow-card flex flex-col items-center gap-4 animate-fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center">
+            <Icons.Shield size={22} />
           </div>
+          <h1 className="text-xl font-bold tracking-tight text-[#191919]">Access Denied</h1>
+          <p className="text-xs text-[#64635e] leading-relaxed">
+            You do not have permission to access <span className="font-semibold text-[#191919]">&quot;{project.name}&quot;</span>. Contact the project owner to request collaborator access.
+          </p>
+          <Link
+            href="/dashboard"
+            className="px-5 py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs inline-flex items-center gap-1.5 mt-2"
+          >
+            <Icons.ArrowLeft size={12} />
+            <span>Back to Workspace</span>
+          </Link>
         </div>
       </div>
     );

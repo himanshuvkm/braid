@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { BlockType } from '../../lib/document-model';
+import { Icons } from '../ui/icons';
 
 interface FormatToolbarProps {
   position: { top: number; left: number };
@@ -18,18 +19,18 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
 }) => {
   return (
     <div
-      className="absolute z-50 flex items-center gap-1 p-1 bg-[#000000] text-[#ffffff] rounded-xl shadow-2xl border border-neutral-800 text-xs select-none"
+      className="absolute z-50 flex items-center gap-1 p-1 bg-[#191919] text-[#ffffff] rounded-xl shadow-modal border border-neutral-800 text-xs select-none animate-slide-down"
       style={{
-        top: position.top - 48,
-        left: Math.max(16, position.left - 120),
+        top: position.top - 46,
+        left: Math.max(16, position.left - 100),
       }}
-      onMouseDown={(e) => e.preventDefault()} // Prevent losing textarea selection focus
+      onMouseDown={(e) => e.preventDefault()}
     >
-      {/* Block Type Switcher */}
+      {/* Block Type Selector */}
       <select
         value={currentBlockType}
         onChange={(e) => onConvertBlockType(e.target.value as BlockType)}
-        className="bg-neutral-800 text-neutral-200 text-[11px] font-semibold rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-neutral-700 transition-colors"
+        className="bg-neutral-800 text-neutral-200 text-[11px] font-medium rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-neutral-700 transition-colors"
       >
         <option value="paragraph">Text</option>
         <option value="heading1">H1 Heading</option>
@@ -40,16 +41,16 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
         <option value="todo">To-do</option>
         <option value="quote">Quote</option>
         <option value="callout">Callout</option>
-        <option value="code">Code Block</option>
+        <option value="code">Code</option>
       </select>
 
-      <div className="w-[1px] h-4 bg-neutral-700 mx-0.5" />
+      <div className="w-[1px] h-3.5 bg-neutral-700 mx-0.5" />
 
       {/* Bold */}
       <button
         type="button"
         onClick={() => onFormat('bold')}
-        className="w-7 h-7 flex items-center justify-center font-black rounded-lg hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center font-bold text-xs rounded-md hover:bg-neutral-800 transition-colors"
         title="Bold (Cmd+B)"
       >
         B
@@ -59,7 +60,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('italic')}
-        className="w-7 h-7 flex items-center justify-center italic font-serif rounded-lg hover:bg-neutral-800 transition-colors text-sm"
+        className="w-6 h-6 flex items-center justify-center italic font-serif text-xs rounded-md hover:bg-neutral-800 transition-colors"
         title="Italic (Cmd+I)"
       >
         I
@@ -69,7 +70,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('underline')}
-        className="w-7 h-7 flex items-center justify-center underline rounded-lg hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center underline text-xs rounded-md hover:bg-neutral-800 transition-colors"
         title="Underline (Cmd+U)"
       >
         U
@@ -79,7 +80,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('strikethrough')}
-        className="w-7 h-7 flex items-center justify-center line-through rounded-lg hover:bg-neutral-800 transition-colors text-xs"
+        className="w-6 h-6 flex items-center justify-center line-through text-xs text-neutral-300 rounded-md hover:bg-neutral-800 transition-colors"
         title="Strikethrough"
       >
         S
@@ -89,20 +90,10 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('code')}
-        className="w-7 h-7 flex items-center justify-center font-mono text-[11px] rounded-lg hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center font-mono text-[10px] rounded-md hover:bg-neutral-800 transition-colors"
         title="Inline Code (`)"
       >
-        &lt;/&gt;
-      </button>
-
-      {/* Link */}
-      <button
-        type="button"
-        onClick={() => onFormat('link')}
-        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-800 transition-colors text-xs"
-        title="Link (Cmd+K)"
-      >
-        🔗
+        <Icons.Code size={12} />
       </button>
     </div>
   );
