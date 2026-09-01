@@ -25,9 +25,13 @@ interface EditorProps {
   siteId?: string;
   serverUrl?: string;
   userName?: string;
+  userId?: string;
+  sessionId?: string;
   userColor?: string;
   initialContent?: string;
+  isReadOnly?: boolean;
   onOperation?: (op: Op) => void;
+  onContentChange?: (content: string) => void;
 }
 
 const PASTEL_COLORS = [
@@ -71,10 +75,12 @@ const emptySubscribe = () => () => { };
 function createRGAWithContent(siteId: string, initialContent?: string): RGA {
   const rga = new RGA(siteId);
   if (initialContent && initialContent.length > 0) {
+    const baselineRga = new RGA('init');
     let cursor: OpId | null = null;
     for (const ch of initialContent) {
-      const op = rga.localInsert(cursor, ch);
+      const op = baselineRga.localInsert(cursor, ch);
       cursor = op.id;
+      rga.applyRemote(op);
     }
   }
   return rga;
@@ -87,9 +93,13 @@ export const Editor: React.FC<EditorProps> = ({
   siteId: initialSiteId,
   serverUrl: propServerUrl,
   userName: explicitUserName,
+  userId,
+  sessionId,
   userColor: initialUserColor,
   initialContent = '',
+  isReadOnly = false,
   onOperation,
+  onContentChange,
 }) => {
   // Deterministic SSR & initial hydration value vs client post-hydration siteId
   const siteId = useSyncExternalStore(
@@ -198,14 +208,18 @@ export const Editor: React.FC<EditorProps> = ({
       siteId,
       name: activeUserName,
       color: userColor,
+      userId,
+      sessionId,
       autoConnect: true,
       onRemoteOp: (op: Op) => {
         client.applyRemoteOp(rga, op);
         updateMetrics();
+        onContentChange?.(rga.getText());
       },
       onSyncComplete: (history: readonly Op[]) => {
         client.applyHistory(rga, history);
         updateMetrics();
+        onContentChange?.(rga.getText());
       },
       onPresenceChange: (activePeers: PeerInfo[]) => {
         setPeers(activePeers.filter((p) => p.siteId !== siteId));
@@ -224,7 +238,7 @@ export const Editor: React.FC<EditorProps> = ({
       client.disconnect();
       syncClientRef.current = null;
     };
-  }, [documentId, siteId, isJoined, activeUserName, userColor, propServerUrl, rga, updateMetrics]);
+  }, [documentId, siteId, isJoined, activeUserName, userColor, propServerUrl, rga, userId, sessionId, updateMetrics, onContentChange]);
 
   /**
    * Applies changes from a new serialized document string to the underlying RGA CRDT.
@@ -232,7 +246,7 @@ export const Editor: React.FC<EditorProps> = ({
    */
   const applyDocumentTextDiff = useCallback(
     (newText: string) => {
-      if (!siteId || !isJoined) return;
+      if (!siteId || !isJoined || isReadOnly) return;
       const oldText = rga.getText();
       if (newText === oldText) return;
 
@@ -281,8 +295,9 @@ export const Editor: React.FC<EditorProps> = ({
       }
 
       updateMetrics();
+      onContentChange?.(newText);
     },
-    [siteId, isJoined, rga, onOperation, updateMetrics]
+    [siteId, isJoined, isReadOnly, rga, onOperation, onContentChange, updateMetrics]
   );
 
   // Handle block content change

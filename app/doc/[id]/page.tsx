@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { Editor } from '../../../components/editor/Editor';
 
 interface DocPageProps {
@@ -9,6 +10,11 @@ interface DocPageProps {
 export default async function DocPage({ params, searchParams }: DocPageProps) {
   const { id } = await params;
   const docId = decodeURIComponent(id);
+
+  // Canonical route consolidation: redirect project IDs to /project/[id]
+  if (docId.startsWith('proj-')) {
+    redirect(`/project/${docId}`);
+  }
 
   const sp = searchParams ? await searchParams : {};
   const roomName = sp.name ? decodeURIComponent(sp.name) : undefined;

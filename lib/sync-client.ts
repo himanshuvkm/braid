@@ -54,6 +54,8 @@ export interface SyncClientConfig {
   siteId: string;
   name?: string;
   color?: string;
+  userId?: string;
+  sessionId?: string;
   autoConnect?: boolean;
   reconnectIntervalMs?: number;
   maxReconnectIntervalMs?: number;
@@ -65,6 +67,7 @@ export interface SyncClientConfig {
   onSyncComplete?: (history: readonly Op[], appliedOps: Op[]) => void;
   onPresenceChange?: (peers: PeerInfo[]) => void;
   onStatusChange?: (status: ConnectionStatus) => void;
+  onError?: (error: { message: string; code?: number }) => void;
 }
 
 /**
@@ -457,6 +460,8 @@ export class SyncClient {
       siteId: this.config.siteId,
       name: this.config.name,
       color: this.config.color,
+      userId: this.config.userId,
+      sessionId: this.config.sessionId,
     };
     this.sendRaw(msg);
   }
@@ -619,6 +624,15 @@ export class SyncClient {
             }
           }
           this.config.onPresenceChange?.(Array.from(this.peers.values()));
+        }
+        break;
+
+      case 'error':
+        this.config.onError?.({ message: msg.error, code: msg.code });
+        if (msg.code === 403) {
+          // If unauthorized, do not continually retry reconnects
+          this.intentionallyClosed = true;
+          this.setStatus('disconnected');
         }
         break;
     }

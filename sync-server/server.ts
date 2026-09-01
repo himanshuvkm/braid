@@ -1,15 +1,18 @@
 import type { WebSocketServer, WebSocket } from 'ws';
 import type { Op } from '../crdt-engine/src/index';
+import { RGA } from '../crdt-engine/src/index';
+import { getProject, getProjectRole, getSession, type ProjectRole } from '../lib/db';
 
 export interface PeerInfo {
   siteId: string;
   name?: string;
   color?: string;
   cursor?: number;
+  role?: ProjectRole;
 }
 
 export type SyncMessage =
-  | { type: 'join'; docId: string; siteId: string; name?: string; color?: string }
+  | { type: 'join'; docId: string; siteId: string; name?: string; color?: string; userId?: string; sessionId?: string }
   | { type: 'leave'; docId: string; siteId: string }
   | { type: 'op'; docId: string; siteId: string; op: Op }
   | { type: 'sync'; docId: string; history: Op[]; peers: PeerInfo[] }
@@ -20,37 +23,121 @@ export type SyncMessage =
       name?: string;
       color?: string;
       cursor?: number;
+      role?: ProjectRole;
       action?: 'join' | 'leave' | 'update';
     }
   | { type: 'peers'; docId: string; peers: PeerInfo[] }
   | { type: 'ack'; docId: string; siteId: string; counter: number }
-  | { type: 'stable_counters'; docId: string; stableCounters: Record<string, number> };
+  | { type: 'stable_counters'; docId: string; stableCounters: Record<string, number> }
+  | { type: 'error'; docId?: string; error: string; code?: number };
 
 export interface ClientConnection {
   id: string;
   siteId?: string;
   docId?: string;
+  userId?: string;
   name?: string;
   color?: string;
   cursor?: number;
+  role?: ProjectRole;
+  isReadOnly?: boolean;
   send: (data: string) => void;
   close?: () => void;
 }
 
+export interface AuthResult {
+  allowed: boolean;
+  role?: ProjectRole;
+  readOnly?: boolean;
+  userId?: string;
+}
+
+export type AuthorizerFn = (params: {
+  docId: string;
+  userId?: string;
+  sessionId?: string;
+  siteId: string;
+}) => AuthResult | Promise<AuthResult>;
+
 /**
- * SyncServer acts as a lightweight, CRDT-agnostic relay and room router.
- * It does not need to understand RGA merge logic: it simply buffers doc history
- * and broadcasts ops/presence to other clients in the same document room.
+ * Generate deterministic baseline insert ops for pre-existing document text
+ */
+export function textToBaselineOps(text: string, baselineSiteId: string = 'init'): Op[] {
+  const rga = new RGA(baselineSiteId);
+  const ops: Op[] = [];
+  let cursor: Parameters<RGA['localInsert']>[0] = null;
+  for (const ch of text) {
+    const op = rga.localInsert(cursor, ch);
+    cursor = op.id;
+    ops.push(op);
+  }
+  return ops;
+}
+
+/**
+ * Default room authorizer enforcing project permissions via database
+ */
+export function defaultAuthorizer(params: {
+  docId: string;
+  userId?: string;
+  sessionId?: string;
+}): AuthResult {
+  const { docId } = params;
+
+  // Non-project rooms (e.g. 'demo', 'presence-doc', legacy unit tests) allow open access
+  if (!docId.startsWith('proj-')) {
+    return { allowed: true, role: 'OWNER', readOnly: false };
+  }
+
+  // Resolve user identity from userId or sessionId
+  let userId = params.userId;
+  if (!userId && params.sessionId) {
+    try {
+      const session = getSession(params.sessionId);
+      if (session) {
+        userId = session.user.id;
+      }
+    } catch {}
+  }
+
+  if (!userId) {
+    return { allowed: false };
+  }
+
+  try {
+    const role = getProjectRole(docId, userId);
+    if (!role) {
+      return { allowed: false };
+    }
+
+    return {
+      allowed: true,
+      role,
+      readOnly: role === 'VIEWER',
+      userId,
+    };
+  } catch {
+    return { allowed: false };
+  }
+}
+
+/**
+ * SyncServer acts as a lightweight, CRDT relay, room router, and authorization gate.
  */
 export class SyncServer {
   private rooms: Map<string, Set<ClientConnection>> = new Map();
   private docHistory: Map<string, Op[]> = new Map();
   private siteClocks: Map<string, Map<string, number>> = new Map(); // docId -> (siteId -> highest counter)
+  private authorizer: AuthorizerFn;
+
+  constructor(authorizer?: AuthorizerFn) {
+    this.authorizer = authorizer || defaultAuthorizer;
+  }
 
   /**
    * Handle incoming raw message from a client
    */
-  handleMessage(client: ClientConnection, raw: string): void {
+  async handleMessage(client: ClientConnection, raw: string): Promise<void> {
     let msg: SyncMessage;
     try {
       msg = JSON.parse(raw);
@@ -61,17 +148,19 @@ export class SyncServer {
 
     switch (msg.type) {
       case 'join':
-        this.joinRoom(msg.docId, client, {
+        await this.joinRoom(msg.docId, client, {
           siteId: msg.siteId,
           name: msg.name,
           color: msg.color,
+          userId: msg.userId,
+          sessionId: msg.sessionId,
         });
         break;
 
       case 'op':
         if (msg.op && msg.docId) {
           if (!client.docId || client.docId !== msg.docId) {
-            this.joinRoom(msg.docId, client, { siteId: msg.siteId || msg.op.id.siteId });
+            await this.joinRoom(msg.docId, client, { siteId: msg.siteId || msg.op.id.siteId });
           }
           this.handleOperation(client, msg.docId, msg.op);
         }
@@ -80,7 +169,7 @@ export class SyncServer {
       case 'presence':
         if (msg.docId) {
           if (!client.docId) {
-            this.joinRoom(msg.docId, client, { siteId: msg.siteId });
+            await this.joinRoom(msg.docId, client, { siteId: msg.siteId });
           }
           this.handlePresence(client, msg.docId, msg);
         }
@@ -102,9 +191,34 @@ export class SyncServer {
   }
 
   /**
-   * Join a document room, send history, and announce to peers
+   * Join a document room, verify authorization, send history, and announce to peers
    */
-  joinRoom(docId: string, client: ClientConnection, info?: Partial<PeerInfo>): void {
+  async joinRoom(
+    docId: string,
+    client: ClientConnection,
+    info?: { siteId?: string; name?: string; color?: string; userId?: string; sessionId?: string }
+  ): Promise<boolean> {
+    const siteId = info?.siteId || client.siteId || 'anonymous';
+    const userId = info?.userId || client.userId;
+    const sessionId = info?.sessionId;
+
+    // 1. Authorize connection for project rooms
+    const auth = await this.authorizer({ docId, userId, sessionId, siteId });
+    if (!auth.allowed) {
+      client.send(
+        JSON.stringify({
+          type: 'error',
+          docId,
+          error: 'Forbidden: You do not have access to this project',
+          code: 403,
+        })
+      );
+      if (client.close) {
+        client.close();
+      }
+      return false;
+    }
+
     if (client.docId && client.docId !== docId) {
       this.handleDisconnect(client);
     }
@@ -113,17 +227,33 @@ export class SyncServer {
     if (info?.siteId) client.siteId = info.siteId;
     if (info?.name) client.name = info.name;
     if (info?.color) client.color = info.color;
+    if (auth.userId) client.userId = auth.userId;
+    client.role = auth.role;
+    client.isReadOnly = auth.readOnly ?? (auth.role === 'VIEWER');
 
     if (!this.rooms.has(docId)) {
       this.rooms.set(docId, new Set());
-      this.docHistory.set(docId, []);
       this.siteClocks.set(docId, new Map());
+
+      // If document history is not initialized, check for persisted database snapshot
+      if (!this.docHistory.has(docId)) {
+        try {
+          const project = getProject(docId);
+          if (project && project.content) {
+            this.docHistory.set(docId, textToBaselineOps(project.content));
+          } else {
+            this.docHistory.set(docId, []);
+          }
+        } catch {
+          this.docHistory.set(docId, []);
+        }
+      }
     }
 
     const room = this.rooms.get(docId)!;
     room.add(client);
 
-    // 1. Send initial sync catch-up with history and existing peers
+    // 2. Send initial sync catch-up with history and existing peers
     const history = this.docHistory.get(docId) || [];
     const peers = this.getPeers(docId);
 
@@ -135,7 +265,7 @@ export class SyncServer {
     };
     client.send(JSON.stringify(syncMsg));
 
-    // 2. Announce new peer presence to other room members
+    // 3. Announce new peer presence to other room members
     if (client.siteId) {
       this.broadcast(
         docId,
@@ -146,17 +276,33 @@ export class SyncServer {
           name: client.name,
           color: client.color,
           cursor: client.cursor,
+          role: client.role,
           action: 'join',
         },
         client.id
       );
     }
+
+    return true;
   }
 
   /**
-   * Append op to document history and relay to other peers
+   * Append op to document history and relay to other peers (rejecting VIEWER mutations)
    */
   handleOperation(client: ClientConnection, docId: string, op: Op): void {
+    // Viewer role cannot submit edits to room
+    if (client.isReadOnly) {
+      client.send(
+        JSON.stringify({
+          type: 'error',
+          docId,
+          error: 'Forbidden: Viewer cannot submit edits',
+          code: 403,
+        })
+      );
+      return;
+    }
+
     const history = this.docHistory.get(docId);
     if (history) {
       history.push(op);
@@ -206,6 +352,7 @@ export class SyncServer {
         name: client.name,
         color: client.color,
         cursor: client.cursor,
+        role: client.role,
         action: 'update',
       },
       client.id
@@ -281,6 +428,7 @@ export class SyncServer {
           name: client.name,
           color: client.color,
           cursor: client.cursor,
+          role: client.role,
         });
       }
     }
@@ -321,9 +469,9 @@ export class SyncServer {
         close: () => ws.close(),
       };
 
-      ws.on('message', (data: Buffer | string) => {
+      ws.on('message', async (data: Buffer | string) => {
         const text = typeof data === 'string' ? data : data.toString('utf-8');
-        this.handleMessage(client, text);
+        await this.handleMessage(client, text);
       });
 
       ws.on('close', () => {

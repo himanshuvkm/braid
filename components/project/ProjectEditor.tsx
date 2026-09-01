@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Editor } from '../editor/Editor';
 import type { User, Project, ProjectRole } from '../../lib/db';
@@ -54,8 +54,9 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
           }
 
           setSaveStatus('saved');
+          pendingSaveContentRef.current = null;
         } catch {
-          if (!navigator.onLine) {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
             setSaveStatus('offline');
           } else {
             setSaveStatus('error');
@@ -65,6 +66,31 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
     },
     [project.id, role]
   );
+
+  // Immediate flush on page refresh or unload to eliminate persistence window
+  useEffect(() => {
+    const handleUnload = () => {
+      if (pendingSaveContentRef.current !== null && role !== 'VIEWER') {
+        const payload = JSON.stringify({ content: pendingSaveContentRef.current });
+        try {
+          fetch(`/api/projects/${project.id}/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+          });
+        } catch {}
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, [project.id, role]);
 
   // Load project members on opening share modal
   const fetchMembers = async () => {
@@ -209,19 +235,11 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
           documentId={project.id}
           initialRoomName={project.name}
           userName={user.name}
+          userId={user.id}
+          isReadOnly={role === 'VIEWER'}
           initialContent={project.content}
-          onOperation={() => {
-            // Content modified in editor -> schedule debounced autosave
-            // Find RGA serialized document content in active session
-            if (typeof window !== 'undefined') {
-              const textareas = document.querySelectorAll('main textarea');
-              if (textareas.length > 0) {
-                const combined = Array.from(textareas)
-                  .map((ta) => (ta as HTMLTextAreaElement).value)
-                  .join('\n');
-                triggerAutoSave(combined);
-              }
-            }
+          onContentChange={(newContent) => {
+            triggerAutoSave(newContent);
           }}
         />
       </div>
