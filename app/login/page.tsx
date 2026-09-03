@@ -4,6 +4,10 @@ import React, { useState, useTransition, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Icons } from '../../components/ui/icons';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Divider } from '../../components/ui/divider';
+import { Avatar } from '../../components/ui/avatar';
 
 function LoginForm() {
   const router = useRouter();
@@ -88,8 +92,8 @@ function LoginForm() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col justify-center items-center p-6 selection:bg-[#191919]/10">
-      <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-8 sm:p-10 shadow-card flex flex-col gap-6 animate-fade-in">
+    <div className="min-h-screen bg-[#faf9f6] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[#191919]/10">
+      <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-2xl p-7 sm:p-9 shadow-modal flex flex-col gap-6 animate-fade-in">
         {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center gap-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity">
@@ -102,7 +106,7 @@ function LoginForm() {
           <h1 className="text-2xl font-bold tracking-tight text-[#191919]">
             {tab === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p className="text-xs text-[#64635e]">
+          <p className="text-xs text-[#64635e] leading-relaxed">
             {tab === 'signin'
               ? 'Sign in to access your persistent workspace and documents'
               : 'Start building real-time collaborative documents'}
@@ -117,7 +121,7 @@ function LoginForm() {
               setTab('signin');
               setError(null);
             }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20 ${
               tab === 'signin' ? 'bg-[#ffffff] text-[#191919] shadow-xs' : 'text-[#64635e] hover:text-[#191919]'
             }`}
           >
@@ -129,7 +133,7 @@ function LoginForm() {
               setTab('signup');
               setError(null);
             }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20 ${
               tab === 'signup' ? 'bg-[#ffffff] text-[#191919] shadow-xs' : 'text-[#64635e] hover:text-[#191919]'
             }`}
           >
@@ -139,8 +143,12 @@ function LoginForm() {
 
         {/* Error Notification */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
-            {error}
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700 flex items-center gap-2 animate-fade-in"
+          >
+            <Icons.AlertCircle size={14} className="shrink-0 text-red-600" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -150,70 +158,54 @@ function LoginForm() {
           className="flex flex-col gap-3.5"
         >
           {tab === 'signup' && (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="auth-name" className="text-xs font-semibold text-[#191919]">
-                Your Name
-              </label>
-              <input
-                id="auth-name"
-                type="text"
-                placeholder="e.g. Himanshu"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-sm text-[#191919] placeholder-[#9a9994] outline-none focus:border-[#191919]"
-              />
-            </div>
+            <Input
+              id="auth-name"
+              label="Your Name"
+              type="text"
+              placeholder="e.g. Himanshu"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="auth-email" className="text-xs font-semibold text-[#191919]">
-              Email Address
-            </label>
-            <input
-              id="auth-email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-sm text-[#191919] placeholder-[#9a9994] outline-none focus:border-[#191919]"
-            />
-          </div>
+          <Input
+            id="auth-email"
+            label="Email Address"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="auth-password" className="text-xs font-semibold text-[#191919]">
-              Password {tab === 'signup' && <span className="text-[10px] text-[#9a9994] font-normal">(min. 8 characters)</span>}
-            </label>
-            <input
-              id="auth-password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-sm text-[#191919] placeholder-[#9a9994] outline-none focus:border-[#191919]"
-            />
-          </div>
+          <Input
+            id="auth-password"
+            label={tab === 'signup' ? 'Password (min. 8 characters)' : 'Password'}
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
 
-          <button
+          <Button
             type="submit"
-            disabled={isPending}
-            className="w-full py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center justify-center gap-1.5 mt-2 disabled:opacity-50"
+            variant="primary"
+            size="md"
+            isLoading={isPending}
+            fullWidth
+            className="mt-2"
           >
-            <span>{isPending ? 'Authenticating...' : tab === 'signin' ? 'Sign In →' : 'Create Account →'}</span>
-          </button>
+            {tab === 'signin' ? 'Sign In' : 'Create Account'}
+          </Button>
         </form>
 
         {/* Divider */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-[1px] bg-[#e8e6e1]" />
-          <span className="text-[10px] font-semibold text-[#9a9994] uppercase tracking-wider">or demo profiles</span>
-          <div className="flex-1 h-[1px] bg-[#e8e6e1]" />
-        </div>
+        <Divider label="or demo profiles" />
 
-        {/* 1-Click Demo Profiles (Enabled for development) */}
+        {/* 1-Click Demo Profiles */}
         <div className="grid grid-cols-3 gap-2">
           {demoUsers.map((u) => (
             <button
@@ -221,14 +213,14 @@ function LoginForm() {
               type="button"
               onClick={() => handleLogin(u.email, 'password123', u.id)}
               disabled={isPending}
-              className="flex flex-col items-center p-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] hover:border-[#191919] hover:bg-[#ffffff] transition-all text-center group disabled:opacity-50"
+              className="flex flex-col items-center p-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] hover:border-[#191919] hover:bg-[#ffffff] transition-all text-center group disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20"
             >
-              <div
-                className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold mb-1 group-hover:scale-105 transition-transform"
-                style={{ backgroundColor: u.color }}
-              >
-                {u.initial}
-              </div>
+              <Avatar
+                name={u.name}
+                color={u.color}
+                size="sm"
+                className="mb-1.5 group-hover:scale-105 transition-transform"
+              />
               <span className="text-xs font-semibold text-[#191919] truncate w-full">{u.name}</span>
               <span className="text-[10px] text-[#64635e] truncate w-full">{u.role}</span>
             </button>
@@ -237,7 +229,7 @@ function LoginForm() {
 
         {/* Back Link */}
         <div className="text-center pt-2 border-t border-[#e8e6e1]">
-          <Link href="/" className="text-xs text-[#64635e] hover:text-[#191919] transition-colors inline-flex items-center gap-1">
+          <Link href="/" className="text-xs text-[#64635e] hover:text-[#191919] transition-colors inline-flex items-center gap-1.5">
             <Icons.ArrowLeft size={12} />
             <span>Back to Braid</span>
           </Link>

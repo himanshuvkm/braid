@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { Editor } from '../editor/Editor';
 import type { User, Project, ProjectRole } from '../../lib/db';
 import { Icons } from '../ui/icons';
+import { Button } from '../ui/button';
+import { IconButton } from '../ui/icon-button';
+import { Badge } from '../ui/badge';
+import { Avatar } from '../ui/avatar';
+import { Modal } from '../ui/modal';
 import { useToast } from '../ui/toast';
 
 interface ProjectEditorProps {
@@ -161,43 +166,44 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
   return (
     <div className="flex flex-col min-h-screen bg-[#faf9f6] text-[#191919] selection:bg-[#191919]/10">
       {/* Top Project Navigation & Workspace Bar */}
-      <header className="bg-[#faf9f6]/90 backdrop-blur-md border-b border-[#e8e6e1] px-4 sm:px-6 h-14 flex items-center justify-between gap-4 sticky top-0 z-30">
+      <header className="bg-[#faf9f6]/95 backdrop-blur-md border-b border-[#e8e6e1] px-4 sm:px-6 h-14 flex items-center justify-between gap-3 sticky top-0 z-30">
         {/* Left: Breadcrumbs & Project Info */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#64635e] hover:text-[#191919] hover:bg-[#f4f3ef] transition-colors shrink-0"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-[#64635e] hover:text-[#191919] hover:bg-[#eeede8] transition-colors shrink-0"
           >
             <Icons.ArrowLeft size={13} />
             <span className="hidden sm:inline">Workspace</span>
           </Link>
 
-          <span className="text-[#9a9994] text-xs">/</span>
+          <span className="text-[#d4d2cc] text-xs">/</span>
 
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-semibold text-xs sm:text-sm text-[#191919] tracking-tight truncate max-w-[200px] sm:max-w-md">
+            <span className="font-semibold text-xs sm:text-sm text-[#191919] tracking-tight truncate max-w-[180px] sm:max-w-xs md:max-w-md">
               {project.name}
             </span>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
+            <Badge
+              variant={
                 role === 'OWNER'
-                  ? 'bg-[#f4f3ef] text-[#191919]'
+                  ? 'neutral'
                   : role === 'EDITOR'
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'bg-amber-50 text-amber-700'
-              }`}
+                  ? 'blue'
+                  : 'warning'
+              }
+              size="sm"
             >
               {role}
-            </span>
+            </Badge>
           </div>
         </div>
 
         {/* Right: Autosave Status, Share, & User Identity */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Autosave Status Pill */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-[11px] font-medium">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 saveStatus === 'saved'
                   ? 'bg-emerald-500'
                   : saveStatus === 'saving'
@@ -220,24 +226,22 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
 
           {/* Share Modal Trigger (Available to Owners) */}
           {role === 'OWNER' && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => {
                 setShowShareModal(true);
                 fetchMembers();
               }}
-              className="px-3 py-1.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center gap-1.5"
+              leftIcon={<Icons.Share size={12} />}
             >
-              <Icons.Share size={12} />
-              <span>Share</span>
-            </button>
+              Share
+            </Button>
           )}
 
           {/* User Profile */}
-          <div className="flex items-center gap-1.5 pl-1 border-l border-[#e8e6e1]">
-            <div className="w-6 h-6 rounded-full bg-[#191919] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
-              {user.avatar || user.name.slice(0, 1).toUpperCase()}
-            </div>
+          <div className="flex items-center gap-2 pl-1 border-l border-[#e8e6e1]">
+            <Avatar name={user.name} size="sm" />
             <span className="text-xs font-medium text-[#191919] hidden md:inline">{user.name}</span>
           </div>
         </div>
@@ -258,129 +262,123 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
         />
       </main>
 
-      {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-6 sm:p-7 shadow-modal flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-[#191919]">Share &quot;{project.name}&quot;</h3>
-                <p className="text-xs text-[#64635e] mt-0.5">Invite teammates or share a direct link.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowShareModal(false)}
-                className="p-1 text-[#64635e] hover:text-[#191919]"
+      {/* Standardized Share Modal */}
+      <Modal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={`Share "${project.name}"`}
+        description="Invite teammates or share a direct link."
+        maxWidth="md"
+      >
+        <div className="flex flex-col gap-4">
+          {/* Quick Copy Link */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-[#f4f3ef] border border-[#e8e6e1]">
+            <div className="flex items-center gap-2 text-xs text-[#191919] font-medium">
+              <Icons.Document size={14} className="text-[#64635e]" />
+              <span>Anyone with project access</span>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCopyShareLink}
+              leftIcon={<Icons.Copy size={11} />}
+            >
+              Copy Link
+            </Button>
+          </div>
+
+          {/* Invite Form */}
+          <form onSubmit={handleShareSubmit} className="flex flex-col gap-3">
+            <label htmlFor="share-email-input" className="text-xs font-semibold text-[#191919]">
+              Invite Collaborator by Email
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="share-email-input"
+                type="email"
+                placeholder="e.g. bob@braid.app"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                className="flex-1 px-3 py-1.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs text-[#191919] outline-none focus:border-[#191919] focus:bg-[#ffffff] transition-all"
+              />
+              <select
+                value={shareRole}
+                onChange={(e) => setShareRole(e.target.value as 'EDITOR' | 'VIEWER')}
+                className="px-3 py-1.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs font-semibold text-[#191919] outline-none cursor-pointer"
               >
-                <Icons.X size={16} />
-              </button>
+                <option value="EDITOR">Editor</option>
+                <option value="VIEWER">Viewer</option>
+              </select>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                isLoading={isSharing}
+              >
+                Invite
+              </Button>
             </div>
 
-            {/* Quick Copy Link */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#f4f3ef] border border-[#e8e6e1]">
-              <div className="flex items-center gap-2 text-xs text-[#191919] font-medium">
-                <Icons.Document size={14} className="text-[#64635e]" />
-                <span>Anyone with project access</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleCopyShareLink}
-                className="px-3 py-1.5 rounded-xl bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] text-xs font-semibold text-[#191919] transition-all shadow-xs flex items-center gap-1"
-              >
-                <Icons.Copy size={11} />
-                <span>Copy Link</span>
-              </button>
+            {shareError && (
+              <p className="text-xs text-red-600 font-medium animate-fade-in">{shareError}</p>
+            )}
+            {shareSuccess && (
+              <p className="text-xs text-emerald-600 font-medium animate-fade-in">{shareSuccess}</p>
+            )}
+          </form>
+
+          {/* Active Members List */}
+          <div className="flex flex-col gap-2 pt-2 border-t border-[#e8e6e1]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994]">
+              Collaborators ({members.length + 1})
             </div>
 
-            {/* Invite Form */}
-            <form onSubmit={handleShareSubmit} className="flex flex-col gap-3">
-              <label htmlFor="share-email-input" className="text-xs font-semibold text-[#191919]">
-                Invite Collaborator by Email
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="share-email-input"
-                  type="email"
-                  placeholder="e.g. bob@braid.app"
-                  value={shareEmail}
-                  onChange={(e) => setShareEmail(e.target.value)}
-                  className="flex-1 px-3.5 py-2 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs text-[#191919] outline-none focus:border-[#191919]"
-                />
-                <select
-                  value={shareRole}
-                  onChange={(e) => setShareRole(e.target.value as 'EDITOR' | 'VIEWER')}
-                  className="px-3 py-2 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-xs font-semibold text-[#191919] outline-none"
-                >
-                  <option value="EDITOR">Editor</option>
-                  <option value="VIEWER">Viewer</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={isSharing}
-                  className="px-4 py-2 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                >
-                  Invite
-                </button>
+            {/* Owner */}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#faf9f6] border border-[#e8e6e1]/60">
+              <div className="flex items-center gap-2.5">
+                <Avatar name={user.name} size="xs" />
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-semibold text-[#191919]">{user.name} (You)</span>
+                  <span className="text-[10px] text-[#9a9994]">{user.email}</span>
+                </div>
               </div>
+              <Badge variant="neutral" size="sm">
+                OWNER
+              </Badge>
+            </div>
 
-              {shareError && <p className="text-xs text-red-600 font-medium">{shareError}</p>}
-              {shareSuccess && <p className="text-xs text-emerald-600 font-medium">{shareSuccess}</p>}
-            </form>
-
-            {/* Active Members List */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-[#e8e6e1]">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994]">
-                Collaborators ({members.length + 1})
-              </div>
-
-              {/* Owner */}
-              <div className="flex items-center justify-between p-2 rounded-xl bg-[#faf9f6]">
+            {/* Shared Members */}
+            {members.map((m) => (
+              <div
+                key={m.user.id}
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-[#faf9f6] transition-colors"
+              >
                 <div className="flex items-center gap-2.5">
-                  <div className="w-6 h-6 rounded-full bg-[#191919] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
-                    {user.avatar || user.name.slice(0, 1).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-[#191919]">{user.name} (You)</span>
-                    <span className="text-[10px] text-[#9a9994]">{user.email}</span>
+                  <Avatar name={m.user.name} color="#3b82f6" size="xs" />
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-semibold text-[#191919]">{m.user.name}</span>
+                    <span className="text-[10px] text-[#9a9994]">{m.user.email}</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold bg-[#e8e6e1] text-[#191919] px-2 py-0.5 rounded-full uppercase">
-                  OWNER
-                </span>
+
+                <div className="flex items-center gap-2">
+                  <Badge variant="blue" size="sm">
+                    {m.role}
+                  </Badge>
+                  <IconButton
+                    aria-label="Remove collaborator"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleRemoveMember(m.user.id)}
+                  >
+                    <Icons.X size={12} />
+                  </IconButton>
+                </div>
               </div>
-
-              {/* Shared Members */}
-              {members.map((m) => (
-                <div key={m.user.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-[#faf9f6]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-full bg-[#3b82f6] text-[#ffffff] flex items-center justify-center text-[10px] font-bold">
-                      {m.user.avatar || m.user.name.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-[#191919]">{m.user.name}</span>
-                      <span className="text-[10px] text-[#9a9994]">{m.user.email}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                      {m.role}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMember(m.user.id)}
-                      className="p-1 hover:text-red-600 text-[#9a9994] transition-colors"
-                      title="Remove Member"
-                    >
-                      <Icons.X size={12} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

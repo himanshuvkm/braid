@@ -1,16 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, ProjectWithRole } from '../../lib/db';
 import { Icons } from '../../components/ui/icons';
+import { Button } from '../../components/ui/button';
+import { IconButton } from '../../components/ui/icon-button';
+import { Badge } from '../../components/ui/badge';
+import { Avatar } from '../../components/ui/avatar';
+import { Modal } from '../../components/ui/modal';
+import { Input } from '../../components/ui/input';
+import { Dropdown } from '../../components/ui/dropdown';
+import { EmptyState } from '../../components/ui/empty-state';
 import { useToast } from '../../components/ui/toast';
+import { AppShell } from '../../components/layout/AppShell';
+import type { DashboardFilter } from '../../components/layout/Sidebar';
 
 interface DashboardClientProps {
   user: User;
   initialProjects: ProjectWithRole[];
 }
+
+export type SortOption = 'updated' | 'created' | 'alphabetical';
+export type ViewMode = 'grid' | 'list';
 
 function formatRelativeTime(timestamp: number) {
   const diff = Date.now() - timestamp;
@@ -27,20 +39,50 @@ function formatRelativeTime(timestamp: number) {
   });
 }
 
+function cleanPreview(content: string): string {
+  if (!content) return 'Empty document...';
+  const stripped = content
+    .replace(/^#+\s*/gm, '')
+    .replace(/\[([ xX])\]\s*/g, '')
+    .replace(/[`*_\~]/g, '')
+    .trim();
+  return stripped.slice(0, 140) || 'Empty document...';
+}
+
 export function DashboardClient({ user, initialProjects }: DashboardClientProps) {
   const router = useRouter();
   const { toast } = useToast();
+
   const [projects, setProjects] = useState<ProjectWithRole[]>(initialProjects);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'owned' | 'shared'>('all');
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('updated');
+  const [currentTime] = useState(() => Date.now());
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('braid:view_mode');
+        if (stored === 'grid' || stored === 'list') {
+          return stored;
+        }
+      } catch {}
+    }
+    return 'grid';
+  });
   const [isCreating, setIsCreating] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Modals state
   const [renameProject, setRenameProject] = useState<ProjectWithRole | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleSetViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('braid:view_mode', mode);
+    } catch {}
+  };
 
   const handleSignOut = async () => {
     try {
@@ -87,7 +129,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       if (!res.ok) throw new Error(data.error || 'Failed to rename');
 
       setProjects((prev) =>
-        prev.map((p) => (p.id === renameProject.id ? { ...p, name: renameInput.trim(), updated_at: Date.now() } : p))
+        prev.map((p) =>
+          p.id === renameProject.id
+            ? { ...p, name: renameInput.trim(), updated_at: Date.now() }
+            : p
+        )
       );
       toast('Document renamed');
       setRenameProject(null);
@@ -144,374 +190,520 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
   };
 
   // Filter and search logic
-  const filteredProjects = projects.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.content.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.content.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (!matchesSearch) return false;
-    if (activeFilter === 'owned') return p.role === 'OWNER';
-    if (activeFilter === 'shared') return p.role !== 'OWNER';
-    return true;
-  });
+      if (!matchesSearch) return false;
+
+      if (activeFilter === 'owned') return p.role === 'OWNER';
+      if (activeFilter === 'shared') return p.role !== 'OWNER';
+      if (activeFilter === 'recent') {
+        const sevenDaysAgo = currentTime - 7 * 24 * 60 * 60 * 1000;
+        return p.updated_at >= sevenDaysAgo;
+      }
+      return true;
+    });
+  }, [projects, searchQuery, activeFilter, currentTime]);
+
+  // Sort logic
+  const sortedProjects = useMemo(() => {
+    const list = [...filteredProjects];
+    if (sortBy === 'updated') {
+      list.sort((a, b) => b.updated_at - a.updated_at);
+    } else if (sortBy === 'created') {
+      list.sort((a, b) => b.created_at - a.created_at);
+    } else if (sortBy === 'alphabetical') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return list;
+  }, [filteredProjects, sortBy]);
+
+  const sevenDaysAgo = currentTime - 7 * 24 * 60 * 60 * 1000;
+  const counts = {
+    all: projects.length,
+    owned: projects.filter((p) => p.role === 'OWNER').length,
+    shared: projects.filter((p) => p.role !== 'OWNER').length,
+    recent: projects.filter((p) => p.updated_at >= sevenDaysAgo).length,
+  };
+
+  const pageTitle =
+    activeFilter === 'all'
+      ? 'All Documents'
+      : activeFilter === 'owned'
+      ? 'My Documents'
+      : activeFilter === 'shared'
+      ? 'Shared with me'
+      : 'Recent Documents';
+
+  const sortLabels: Record<SortOption, string> = {
+    updated: 'Recently updated',
+    created: 'Recently created',
+    alphabetical: 'Alphabetical',
+  };
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-[#191919] flex selection:bg-[#191919]/10">
-      {/* Workspace Sidebar (Desktop & Mobile Drawer) */}
-      <aside
-        className={`fixed md:sticky top-0 z-40 h-screen w-64 bg-[#f4f3ef] border-r border-[#e8e6e1] flex flex-col justify-between p-4 transition-transform duration-200 ${
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-      >
-        <div className="flex flex-col gap-5">
-          {/* Workspace Title & Brand */}
-          <div className="flex items-center justify-between px-2 pt-2">
-            <Link href="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="w-6 h-6 rounded-lg bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs">
-                <Icons.Logo size={14} />
-              </div>
-              <span className="font-bold text-sm tracking-tight text-[#191919]">Braid Workspace</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setMobileSidebarOpen(false)}
-              className="md:hidden p-1 text-[#64635e] hover:text-[#191919]"
-            >
-              <Icons.X size={16} />
-            </button>
+    <AppShell
+      user={user}
+      activeFilter={activeFilter}
+      onFilterChange={setActiveFilter}
+      counts={counts}
+      onCreateDocument={handleCreateProject}
+      isCreating={isCreating}
+      onSignOut={handleSignOut}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      pageTitle={pageTitle}
+    >
+      <main className="p-4 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-6 sm:gap-7 flex-1">
+        {/* Greeting Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191919]">
+              Welcome back, {user.name}
+            </h1>
+            <p className="text-xs text-[#64635e] mt-1">
+              {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
+            </p>
           </div>
 
-          {/* Quick Create Action */}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleCreateProject}
-            disabled={isCreating}
-            className="w-full py-2 px-3 rounded-xl bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] text-[#191919] text-xs font-semibold shadow-xs hover:shadow-sm transition-all flex items-center justify-between disabled:opacity-50"
+            isLoading={isCreating}
+            leftIcon={<Icons.Plus size={14} />}
+            className="self-start sm:self-auto"
           >
-            <div className="flex items-center gap-2">
-              <Icons.Plus size={14} className="text-[#191919]" />
-              <span>{isCreating ? 'Creating...' : 'New document'}</span>
-            </div>
-            <span className="text-[10px] text-[#9a9994] font-mono">⌘N</span>
-          </button>
-
-          {/* Navigation Links */}
-          <nav className="flex flex-col gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveFilter('all')}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left font-medium transition-colors ${
-                activeFilter === 'all'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
-              }`}
-            >
-              <Icons.Home size={14} />
-              <span>All Documents</span>
-              <span className="ml-auto text-[10px] text-[#9a9994]">{projects.length}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFilter('owned')}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left font-medium transition-colors ${
-                activeFilter === 'owned'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
-              }`}
-            >
-              <Icons.Document size={14} />
-              <span>My Documents</span>
-              <span className="ml-auto text-[10px] text-[#9a9994]">
-                {projects.filter((p) => p.role === 'OWNER').length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFilter('shared')}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left font-medium transition-colors ${
-                activeFilter === 'shared'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
-              }`}
-            >
-              <Icons.Users size={14} />
-              <span>Shared with me</span>
-              <span className="ml-auto text-[10px] text-[#9a9994]">
-                {projects.filter((p) => p.role !== 'OWNER').length}
-              </span>
-            </button>
-          </nav>
+            New document
+          </Button>
         </div>
 
-        {/* User Account Bar */}
-        <div className="pt-3 border-t border-[#e8e6e1] flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-[#191919] text-[#ffffff] flex items-center justify-center text-xs font-bold shrink-0">
-              {user.avatar || user.name.slice(0, 1).toUpperCase()}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold text-[#191919] truncate">{user.name}</span>
-              <span className="text-[10px] text-[#9a9994] truncate">{user.email}</span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="p-1.5 text-[#64635e] hover:text-[#191919] hover:bg-[#eeede8] rounded-lg transition-colors"
-            title="Sign Out"
-          >
-            <Icons.ArrowRight size={14} />
-          </button>
-        </div>
-      </aside>
-
-      {/* Backdrop for Mobile Drawer */}
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 z-30 md:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
-        <header className="h-16 border-b border-[#e8e6e1] bg-[#faf9f6]/90 backdrop-blur-md px-6 flex items-center justify-between gap-4 sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-1.5 text-[#64635e] hover:text-[#191919] rounded-lg hover:bg-[#f4f3ef]"
-            >
-              <Icons.Menu size={18} />
-            </button>
-
-            <span className="text-sm font-semibold text-[#191919]">
-              {activeFilter === 'all'
-                ? 'All Documents'
-                : activeFilter === 'owned'
-                ? 'My Documents'
-                : 'Shared with me'}
+        {/* Workspace Toolbar: Search / Filter summary, Sort dropdown, and Grid/List toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[#e8e6e1]/70">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#191919]">
+            <span>{pageTitle}</span>
+            <span className="text-[11px] text-[#9a9994] font-normal">
+              ({sortedProjects.length})
             </span>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full max-w-xs">
-            <Icons.Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9a9994]" />
-            <input
-              type="text"
-              placeholder="Search in workspace..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#f4f3ef] border border-transparent focus:border-[#191919] focus:bg-[#ffffff] text-xs text-[#191919] placeholder-[#9a9994] outline-none transition-all"
-            />
-          </div>
-        </header>
-
-        {/* Dashboard Main Workspace */}
-        <main className="p-6 sm:p-10 max-w-6xl w-full mx-auto flex flex-col gap-8 flex-1">
-          {/* Greeting Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191919]">
-                Welcome back, {user.name}
-              </h1>
-              <p className="text-xs text-[#64635e] mt-1">
-                {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleCreateProject}
-              disabled={isCreating}
-              className="px-4 py-2 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto disabled:opacity-50"
-            >
-              <Icons.Plus size={14} />
-              <span>New document</span>
-            </button>
-          </div>
-
-          {/* Documents Grid or Empty State */}
-          {filteredProjects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 bg-[#ffffff] border border-[#e8e6e1] rounded-3xl text-center shadow-card animate-fade-in">
-              <div className="w-12 h-12 rounded-2xl bg-[#f4f3ef] flex items-center justify-center text-[#64635e] mb-4">
-                <Icons.Document size={22} />
-              </div>
-              <h3 className="text-base font-bold text-[#191919]">
-                {searchQuery ? 'No documents matched your search' : 'No documents yet'}
-              </h3>
-              <p className="text-xs text-[#64635e] max-w-sm mt-1.5 mb-6 leading-relaxed">
-                {searchQuery
-                  ? `No documents found matching "${searchQuery}". Try a different keyword.`
-                  : 'Start writing in real time with Notion-style blocks and conflict-free collaboration.'}
-              </p>
-              {!searchQuery && (
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Sort Dropdown */}
+            <Dropdown
+              align="right"
+              trigger={
                 <button
                   type="button"
-                  onClick={handleCreateProject}
-                  disabled={isCreating}
-                  className="px-5 py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center gap-2"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-[#64635e] hover:text-[#191919] hover:bg-[#f4f3ef] border border-[#e8e6e1] transition-all"
                 >
-                  <Icons.Plus size={14} />
-                  <span>Create first document</span>
+                  <Icons.ArrowUpDown size={12} className="text-[#9a9994]" />
+                  <span>{sortLabels[sortBy]}</span>
+                  <Icons.ChevronDown size={11} className="text-[#9a9994]" />
                 </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={() => router.push(`/project/${project.id}`)}
-                  className="group relative bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] rounded-2xl p-5 shadow-card hover:shadow-lg transition-all flex flex-col justify-between gap-4 cursor-pointer"
-                >
-                  {/* Card Content Top */}
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#f4f3ef] flex items-center justify-center text-[#191919] shrink-0 group-hover:scale-105 transition-transform">
-                        <Icons.Document size={16} />
-                      </div>
+              }
+              items={[
+                {
+                  id: 'sort-updated',
+                  label: 'Recently updated',
+                  onClick: () => setSortBy('updated'),
+                },
+                {
+                  id: 'sort-created',
+                  label: 'Recently created',
+                  onClick: () => setSortBy('created'),
+                },
+                {
+                  id: 'sort-alpha',
+                  label: 'Alphabetical',
+                  onClick: () => setSortBy('alphabetical'),
+                },
+              ]}
+            />
 
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                          project.role === 'OWNER'
-                            ? 'bg-[#f4f3ef] text-[#191919]'
-                            : project.role === 'EDITOR'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {project.role}
-                      </span>
+            {/* Grid vs List View Toggle */}
+            <div className="flex items-center rounded-lg bg-[#f4f3ef] p-0.5 border border-[#e8e6e1]">
+              <button
+                type="button"
+                aria-label="Grid view"
+                onClick={() => handleSetViewMode('grid')}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-[#ffffff] text-[#191919] shadow-xs'
+                    : 'text-[#64635e] hover:text-[#191919]'
+                }`}
+              >
+                <Icons.Grid size={13} />
+              </button>
+              <button
+                type="button"
+                aria-label="List view"
+                onClick={() => handleSetViewMode('list')}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-[#ffffff] text-[#191919] shadow-xs'
+                    : 'text-[#64635e] hover:text-[#191919]'
+                }`}
+              >
+                <Icons.List size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area: Grid View, List View, or Context-Sensitive Empty State */}
+        {sortedProjects.length === 0 ? (
+          searchQuery ? (
+            /* Empty State: Search */
+            <EmptyState
+              icon={<Icons.Search size={20} />}
+              title="No documents matched your search"
+              description={`No documents found matching "${searchQuery}". Check for typos or try a different keyword.`}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  leftIcon={<Icons.X size={12} />}
+                >
+                  Clear search
+                </Button>
+              }
+            />
+          ) : activeFilter !== 'all' ? (
+            /* Empty State: Filter */
+            <EmptyState
+              icon={
+                activeFilter === 'shared' ? (
+                  <Icons.Users size={20} />
+                ) : activeFilter === 'recent' ? (
+                  <Icons.Clock size={20} />
+                ) : (
+                  <Icons.Document size={20} />
+                )
+              }
+              title={
+                activeFilter === 'shared'
+                  ? 'No shared documents'
+                  : activeFilter === 'recent'
+                  ? 'No recent activity'
+                  : 'No documents in this view'
+              }
+              description={
+                activeFilter === 'shared'
+                  ? 'When team members invite you to collaborate, documents will appear here.'
+                  : activeFilter === 'recent'
+                  ? 'Documents you update will appear here in reverse chronological order.'
+                  : 'You have not created any documents yet.'
+              }
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setActiveFilter('all')}
+                >
+                  View all documents
+                </Button>
+              }
+            />
+          ) : (
+            /* Empty State: Global */
+            <EmptyState
+              icon={<Icons.Document size={20} />}
+              title="No documents yet"
+              description="Start writing in real time with Notion-style blocks and conflict-free collaboration."
+              action={
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleCreateProject}
+                  isLoading={isCreating}
+                  leftIcon={<Icons.Plus size={14} />}
+                >
+                  Create your first document
+                </Button>
+              }
+            />
+          )
+        ) : viewMode === 'grid' ? (
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {sortedProjects.map((project) => (
+              <div
+                key={project.id}
+                onClick={() => router.push(`/project/${project.id}`)}
+                className="group relative bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] rounded-2xl p-5 shadow-card hover:shadow-md transition-all flex flex-col justify-between gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-[#191919]/20"
+              >
+                {/* Card Content Top */}
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-[#f4f3ef] border border-[#e8e6e1] flex items-center justify-center text-[#191919] shrink-0 group-hover:scale-105 transition-transform">
+                      <Icons.Document size={15} />
                     </div>
 
-                    <h3 className="font-bold text-base text-[#191919] tracking-tight group-hover:text-black line-clamp-1">
-                      {project.name}
-                    </h3>
-
-                    <p className="text-xs text-[#64635e] line-clamp-2 leading-relaxed font-normal">
-                      {project.content.replace(/^#+\s*/gm, '').slice(0, 120) || 'Empty document...'}
-                    </p>
+                    <Badge
+                      variant={
+                        project.role === 'OWNER'
+                          ? 'neutral'
+                          : project.role === 'EDITOR'
+                          ? 'blue'
+                          : 'warning'
+                      }
+                      size="sm"
+                    >
+                      {project.role}
+                    </Badge>
                   </div>
 
-                  {/* Card Actions Bottom */}
-                  <div className="flex items-center justify-between pt-3 border-t border-[#e8e6e1] text-xs text-[#64635e]">
-                    <div className="flex items-center gap-1.5 text-[11px]">
-                      <Icons.Clock size={12} className="text-[#9a9994]" />
-                      <span>{formatRelativeTime(project.updated_at)}</span>
-                    </div>
+                  <h3 className="font-bold text-sm sm:text-base text-[#191919] tracking-tight group-hover:text-black line-clamp-1">
+                    {project.name}
+                  </h3>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRenameProject(project);
-                          setRenameInput(project.name);
-                        }}
-                        className="p-1.5 hover:bg-[#f4f3ef] rounded-lg text-[#64635e] hover:text-[#191919] transition-colors"
-                        title="Rename"
+                  <p className="text-xs text-[#64635e] line-clamp-2 leading-relaxed font-normal">
+                    {cleanPreview(project.content)}
+                  </p>
+                </div>
+
+                {/* Card Bottom Meta & Actions */}
+                <div className="flex items-center justify-between pt-3 border-t border-[#e8e6e1] text-xs text-[#64635e]">
+                  <div className="flex items-center gap-2 text-[11px] text-[#9a9994] min-w-0">
+                    <Avatar
+                      name={project.owner_name || user.name}
+                      size="xs"
+                      className="shrink-0"
+                    />
+                    <span className="truncate">
+                      {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
+                    </span>
+                    <span>•</span>
+                    <span className="shrink-0">{formatRelativeTime(project.updated_at)}</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <IconButton
+                      aria-label="Rename document"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setRenameProject(project);
+                        setRenameInput(project.name);
+                      }}
+                    >
+                      <Icons.Edit size={13} />
+                    </IconButton>
+
+                    <IconButton
+                      aria-label="Duplicate document"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDuplicate(project.id)}
+                    >
+                      <Icons.Copy size={13} />
+                    </IconButton>
+
+                    {project.role === 'OWNER' && (
+                      <IconButton
+                        aria-label="Delete document"
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeleteProjectId(project.id)}
                       >
-                        <Icons.Edit size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicate(project.id)}
-                        className="p-1.5 hover:bg-[#f4f3ef] rounded-lg text-[#64635e] hover:text-[#191919] transition-colors"
-                        title="Duplicate"
-                      >
-                        <Icons.Copy size={13} />
-                      </button>
-                      {project.role === 'OWNER' && (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteProjectId(project.id)}
-                          className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded-lg text-[#64635e] transition-colors"
-                          title="Delete"
-                        >
-                          <Icons.Trash size={13} />
-                        </button>
-                      )}
-                    </div>
+                        <Icons.Trash size={13} />
+                      </IconButton>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* Rename Modal */}
-      {renameProject && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="w-full max-w-sm bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-6 shadow-modal flex flex-col gap-4">
-            <h3 className="text-base font-bold text-[#191919]">Rename document</h3>
-            <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
-              <input
-                type="text"
-                value={renameInput}
-                onChange={(e) => setRenameInput(e.target.value)}
-                autoFocus
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-sm text-[#191919] outline-none focus:border-[#191919]"
-              />
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRenameProject(null)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#64635e] hover:bg-[#f4f3ef]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90"
-                >
-                  Save Changes
-                </button>
               </div>
-            </form>
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          /* List View (Table / Rows) */
+          <div className="w-full bg-[#ffffff] border border-[#e8e6e1] rounded-2xl shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#e8e6e1] bg-[#faf9f6] text-[#64635e] font-semibold">
+                    <th className="py-3 px-4">Document</th>
+                    <th className="py-3 px-4 hidden sm:table-cell">Owner</th>
+                    <th className="py-3 px-4">Role</th>
+                    <th className="py-3 px-4 hidden md:table-cell">Updated</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#e8e6e1]/60">
+                  {sortedProjects.map((project) => (
+                    <tr
+                      key={project.id}
+                      onClick={() => router.push(`/project/${project.id}`)}
+                      className="hover:bg-[#faf9f6] cursor-pointer transition-colors group"
+                    >
+                      {/* Name & Preview */}
+                      <td className="py-3.5 px-4 min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-[#f4f3ef] border border-[#e8e6e1] flex items-center justify-center text-[#191919] shrink-0 group-hover:scale-105 transition-transform">
+                            <Icons.Document size={14} />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs sm:text-sm text-[#191919] group-hover:text-black truncate">
+                              {project.name}
+                            </span>
+                            <span className="text-[11px] text-[#9a9994] truncate max-w-xs font-normal">
+                              {cleanPreview(project.content)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
 
-      {/* Delete Confirmation Modal */}
-      {deleteProjectId && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="w-full max-w-sm bg-[#ffffff] border border-[#e8e6e1] rounded-3xl p-6 shadow-modal flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-base font-bold text-[#191919]">Delete document?</h3>
-              <p className="text-xs text-[#64635e] leading-relaxed">
-                Are you sure you want to delete this document? This action permanently removes all persisted collaborative edits.
-              </p>
-            </div>
+                      {/* Owner */}
+                      <td className="py-3.5 px-4 hidden sm:table-cell text-[#64635e]">
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            name={project.owner_name || user.name}
+                            size="xs"
+                            className="shrink-0"
+                          />
+                          <span className="truncate">
+                            {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
+                          </span>
+                        </div>
+                      </td>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteProjectId(null)}
-                disabled={isDeleting}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#64635e] hover:bg-[#f4f3ef]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                className="px-4 py-2 rounded-xl bg-red-600 text-[#ffffff] text-xs font-semibold hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete Document'}
-              </button>
+                      {/* Role */}
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={
+                            project.role === 'OWNER'
+                              ? 'neutral'
+                              : project.role === 'EDITOR'
+                              ? 'blue'
+                              : 'warning'
+                          }
+                          size="sm"
+                        >
+                          {project.role}
+                        </Badge>
+                      </td>
+
+                      {/* Updated */}
+                      <td className="py-3.5 px-4 hidden md:table-cell text-[#9a9994] text-[11px]">
+                        {formatRelativeTime(project.updated_at)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div
+                          className="inline-flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <IconButton
+                            aria-label="Rename document"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRenameProject(project);
+                              setRenameInput(project.name);
+                            }}
+                          >
+                            <Icons.Edit size={13} />
+                          </IconButton>
+
+                          <IconButton
+                            aria-label="Duplicate document"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDuplicate(project.id)}
+                          >
+                            <Icons.Copy size={13} />
+                          </IconButton>
+
+                          {project.role === 'OWNER' && (
+                            <IconButton
+                              aria-label="Delete document"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setDeleteProjectId(project.id)}
+                            >
+                              <Icons.Trash size={13} />
+                            </IconButton>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+        )}
+      </main>
+
+      {/* Standardized Rename Modal */}
+      <Modal
+        isOpen={Boolean(renameProject)}
+        onClose={() => setRenameProject(null)}
+        title="Rename document"
+        description="Choose a new title for this collaborative document."
+        maxWidth="sm"
+      >
+        <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
+          <Input
+            value={renameInput}
+            onChange={(e) => setRenameInput(e.target.value)}
+            autoFocus
+            required
+            label="Document Title"
+          />
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setRenameProject(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Standardized Delete Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(deleteProjectId)}
+        onClose={() => setDeleteProjectId(null)}
+        title="Delete document?"
+        description="Are you sure you want to delete this document? This action permanently removes all persisted collaborative edits."
+        maxWidth="sm"
+      >
+        <div className="flex items-center justify-end gap-2 pt-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setDeleteProjectId(null)}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={handleDeleteConfirm}
+            isLoading={isDeleting}
+          >
+            Delete Document
+          </Button>
         </div>
-      )}
-    </div>
+      </Modal>
+    </AppShell>
   );
 }
