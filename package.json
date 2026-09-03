@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "tsx lib/db/migrate.ts",
+    "build:sync-server": "tsc -p tsconfig.server.json",
+    "start:sync-server": "node dist/sync-server/index.js",
     "sync-server": "tsx sync-server/index.ts",
     "bench": "tsx benchmarks/concurrent-editors.bench.ts"
   },
@@ -17,7 +19,8 @@
     "next": "16.3.3",
     "pg": "^8.23.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -32,7 +35,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5",
-    "vitest": "^4.1.11",
-    "ws": "^8.21.3"
+    "vitest": "^4.1.11"
   }
 }

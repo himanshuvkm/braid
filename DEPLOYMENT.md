@@ -72,8 +72,8 @@ Deploy the standalone SyncServer as a **Web Service** on [Render](https://render
    * **Branch**: `main`
    * **Root Directory**: *(leave blank for repository root)* — **Do NOT set to `/sync-server`** because the sync server imports shared types and CRDT logic from the repository root.
    * **Runtime**: `Node`
-   * **Build Command**: `npm install`
-   * **Start Command**: `npm run sync-server`
+   * **Build Command**: `npm install && npm run build:sync-server`
+   * **Start Command**: `npm run start:sync-server`
 4. Under **Advanced Settings**:
    * **Health Check Path**: `/health` (Render will query `GET /health` and expect HTTP 200 OK)
 
