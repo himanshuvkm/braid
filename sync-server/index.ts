@@ -3,10 +3,23 @@ import { WebSocketServer } from 'ws';
 import { SyncServer } from './server';
 
 const PORT = parseInt(process.env.PORT || '4444', 10);
+const HOST = '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim().toLowerCase())
   : [];
+
+if (isProd) {
+  if (!process.env.DATABASE_URL) {
+    console.error('[Braid SyncServer] FATAL: DATABASE_URL environment variable is required in production.');
+    process.exit(1);
+  }
+  if (allowedOrigins.length === 0) {
+    console.warn(
+      '[Braid SyncServer] WARNING: ALLOWED_ORIGINS is not set in production. WebSocket upgrades will not be restricted by origin.'
+    );
+  }
+}
 
 const syncServer = new SyncServer();
 
@@ -29,8 +42,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Braid Sync Server — Service is healthy and WebSocket endpoint is ready.');
+    return;
+  }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Braid Sync Server — WebSocket endpoint is ready.');
+  res.end('Not Found');
 });
 
 function verifyClient(
@@ -48,12 +67,15 @@ function verifyClient(
     return callback(true);
   }
 
+  const cleanOrigin = origin.replace(/\/+$/, '');
+
   const isAllowed = allowedOrigins.some((allowed) => {
-    if (allowed === origin) return true;
-    if (allowed.startsWith('*.')) {
-      const suffix = allowed.slice(1);
+    const cleanAllowed = allowed.replace(/\/+$/, '');
+    if (cleanAllowed === cleanOrigin) return true;
+    if (cleanAllowed.startsWith('*.')) {
+      const suffix = cleanAllowed.slice(1);
       try {
-        const parsed = new URL(origin);
+        const parsed = new URL(cleanOrigin);
         return parsed.hostname.endsWith(suffix);
       } catch {
         return false;
@@ -73,10 +95,10 @@ function verifyClient(
 const wss = new WebSocketServer({ server, verifyClient });
 syncServer.attachWebSocketServer(wss);
 
-server.listen(PORT, () => {
-  console.log(`[Braid SyncServer] Service running on port ${PORT}`);
-  console.log(`  - WebSocket endpoint: ws://localhost:${PORT}`);
-  console.log(`  - Health check: http://localhost:${PORT}/health`);
+server.listen(PORT, HOST, () => {
+  console.log(`[Braid SyncServer] Service running on ${HOST}:${PORT}`);
+  console.log(`  - WebSocket endpoint: ws://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`  - Health check: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`);
   if (allowedOrigins.length > 0) {
     console.log(`  - Allowed origins: ${allowedOrigins.join(', ')}`);
   }

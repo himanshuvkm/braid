@@ -60,64 +60,51 @@ In **Project Settings → Environment Variables**, add:
 
 Deploy the project.
 
-### Step E: Deploy SyncServer to a WebSocket-Capable Host
-Deploy the standalone SyncServer to a platform supporting persistent connections:
-* **Fly.io**: `fly launch` using Dockerfile or Node.js runtime.
-* **Railway / Render**: Deploy as a Web Service running `npm run sync-server`.
-* **VPS / Docker**: Run the container or process behind a reverse proxy.
+### Step E: Deploy SyncServer to Render
 
-**Start Command**:
-```bash
-npm run sync-server
+Deploy the standalone SyncServer as a **Web Service** on [Render](https://render.com):
+
+1. In the Render Dashboard, click **New +** → **Web Service**.
+2. Connect your repository: `himanshuvkm/braid`.
+3. Configure the service settings:
+   * **Name**: `braid-sync-server` (or preferred name)
+   * **Region**: Select a region close to your PostgreSQL database
+   * **Branch**: `main`
+   * **Root Directory**: *(leave blank for repository root)* — **Do NOT set to `/sync-server`** because the sync server imports shared types and CRDT logic from the repository root.
+   * **Runtime**: `Node`
+   * **Build Command**: `npm install`
+   * **Start Command**: `npm run sync-server`
+4. Under **Advanced Settings**:
+   * **Health Check Path**: `/health` (Render will query `GET /health` and expect HTTP 200 OK)
+
+### Step F: Configure SyncServer Environment Variables on Render
+
+In your Render service dashboard under **Environment Variables**, add:
+
+| Key | Value | Purpose |
+| :--- | :--- | :--- |
+| `NODE_ENV` | `production` | Enforces production security, origin validation, and error masking |
+| `DATABASE_URL` | `postgresql://braid_user:secure_password@host:5432/braid?sslmode=require` | Pooled connection to PostgreSQL for session and project authorization |
+| `ALLOWED_ORIGINS` | `https://<web-app-domain>` | Restricts WebSocket upgrades to your web app's origin (e.g. `https://braid.vercel.app` or `https://app.example.com`) |
+
+> [!IMPORTANT]
+> * **Port Handling**: Render automatically injects the `PORT` environment variable. SyncServer dynamically listens on `0.0.0.0:$PORT` to bind to all interfaces. Do NOT hardcode or manually set `PORT=4444` in Render.
+> * **Separation of Variables**: Do NOT define `NEXT_PUBLIC_WS_URL` in Render. That variable is evaluated at client build time and belongs exclusively to the Next.js/Vercel deployment.
+
+Render will provision a public TLS endpoint:
+```
+https://<render-service>.onrender.com
+wss://<render-service>.onrender.com
 ```
 
-### Step F: Configure SyncServer Environment Variables
-In your SyncServer environment settings:
-* `NODE_ENV`: `production`
-* `PORT`: `4444` (or host-assigned port)
-* `DATABASE_URL`: `postgresql://braid_user:secure_password@host:5432/braid?sslmode=require`
-* `ALLOWED_ORIGINS`: `https://app.example.com`
+### Step G: Configure Vercel with Render's WebSocket URL
+In Vercel **Project Settings → Environment Variables**, configure:
+* `NEXT_PUBLIC_WS_URL`: `wss://<render-service>.onrender.com` (or your custom domain `wss://sync.example.com`)
 
-### Step G: Configure DNS
-Configure your DNS provider with two records:
-* `app.example.com` → CNAME pointing to Vercel (`cname.vercel-dns.com`).
-* `sync.example.com` → A/AAAA or CNAME pointing to your SyncServer host.
-
-### Step H: Configure TLS / WSS Reverse Proxy
-If running SyncServer behind Nginx or Caddy:
-
-#### Nginx Example (`/etc/nginx/sites-available/sync.example.com`)
-```nginx
-server {
-    server_name sync.example.com;
-    listen 443 ssl http2;
-
-    ssl_certificate /etc/letsencrypt/live/sync.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/sync.example.com/privkey.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:4444;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Keepalive timeouts for persistent collaborative sessions
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-}
-```
-
-#### Caddy Example (`Caddyfile`)
-```caddy
-sync.example.com {
-    reverse_proxy localhost:4444
-}
-```
+### Step H: Configure Custom Domains & TLS (Optional)
+If using custom domains:
+* `app.example.com` → CNAME to Vercel (`cname.vercel-dns.com`).
+* `sync.example.com` → CNAME to `<render-service>.onrender.com` in Render's Custom Domains dashboard. Render provisions and renews TLS certificates automatically for WSS connections.
 
 ### Step I: Verify Health Checks
 1. **Next.js Web App Health**:
@@ -178,13 +165,13 @@ sync.example.com {
 | `DATABASE_URL` | Yes | `postgresql://...` | Pooled connection to PostgreSQL |
 | `NEXT_PUBLIC_WS_URL` | Yes | `wss://sync.example.com` | Public TLS WebSocket URL for browser sync client |
 
-### Standalone SyncServer
+### Standalone SyncServer (Render)
 | Variable | Required | Example | Notes |
 | :--- | :--- | :--- | :--- |
-| `NODE_ENV` | Yes | `production` | Enables production security checks |
-| `PORT` | No | `4444` | Listening port (defaults to 4444) |
+| `NODE_ENV` | Yes | `production` | Enables production security checks and origin enforcement |
 | `DATABASE_URL` | Yes | `postgresql://...` | Connection to PostgreSQL for session & project validation |
-| `ALLOWED_ORIGINS` | Recommended | `https://app.example.com` | Restricts WebSocket upgrades to authorized web origin |
+| `ALLOWED_ORIGINS` | Yes | `https://braid.vercel.app` | Restricts WebSocket upgrades to authorized web app origin |
+| `PORT` | Auto (Render) | `10000` | Injected automatically by Render (defaults to 4444 locally) |
 
 ---
 
