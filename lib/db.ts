@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { hashPasswordSync } from './password';
 
 export interface User {
   id: string;
@@ -45,6 +47,10 @@ export interface ProjectWithRole extends Project {
 }
 
 let dbInstance: DatabaseSync | null = null;
+
+export function setDatabase(db: DatabaseSync | null): void {
+  dbInstance = db;
+}
 
 export function getDatabase(dbPath?: string): DatabaseSync {
   if (dbInstance && !dbPath) {
@@ -118,8 +124,9 @@ export function getDatabase(dbPath?: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
   `);
 
-  if (!dbPath) {
-    dbInstance = db;
+  dbInstance = db;
+  // Only seed default demo users in non-production environments when not an isolated memory test
+  if (process.env.NODE_ENV !== 'production' && targetPath !== ':memory:') {
     seedDefaultUsers(db);
   }
 
@@ -127,38 +134,47 @@ export function getDatabase(dbPath?: string): DatabaseSync {
 }
 
 /**
- * Seed default demo accounts (Alice, Bob, Ajay) for frictionless local exploration & multi-peer testing
+ * Seed default demo accounts (Alice, Bob, Himanshu) for development exploration & testing.
+ * Strictly guarded against running in production.
  */
 export function seedDefaultUsers(db: DatabaseSync = getDatabase()): void {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  const defaultPasswordHash = hashPasswordSync('password123');
   const defaultUsers = [
     {
       id: 'user-alice',
       name: 'Alice',
       email: 'alice@braid.app',
       avatar: '👩‍💻',
+      passwordHash: defaultPasswordHash,
     },
     {
       id: 'user-bob',
       name: 'Bob',
       email: 'bob@braid.app',
       avatar: '👨‍🎨',
+      passwordHash: defaultPasswordHash,
     },
     {
-      id: 'user-Ajay',
-      name: 'Ajay',
-      email: 'Ajay@braid.app',
+      id: 'user-himanshu',
+      name: 'Himanshu',
+      email: 'himanshu@braid.app',
       avatar: '🚀',
+      passwordHash: defaultPasswordHash,
     },
   ];
 
   const now = Date.now();
   const insertStmt = db.prepare(`
-    INSERT OR IGNORE INTO users (id, name, email, avatar, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO users (id, name, email, avatar, password_hash, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const u of defaultUsers) {
-    insertStmt.run(u.id, u.name, u.email, u.avatar, now, now);
+    insertStmt.run(u.id, u.name, u.email, u.avatar, u.passwordHash, now, now);
   }
 }
 
@@ -174,7 +190,7 @@ export function createUser(
   },
   db: DatabaseSync = getDatabase()
 ): User {
-  const id = data.id || `user-${Math.random().toString(36).substring(2, 10)}`;
+  const id = data.id || `user-${crypto.randomBytes(8).toString('hex')}`;
   const now = Date.now();
   const cleanEmail = data.email.toLowerCase().trim();
 
@@ -234,7 +250,8 @@ export function createSession(
   ttlDays: number = 30,
   db: DatabaseSync = getDatabase()
 ): Session {
-  const sessionId = `sess-${Math.random().toString(36).substring(2, 12)}${Math.random().toString(36).substring(2, 12)}`;
+  // Generate 256 bits of cryptographically secure randomness
+  const sessionId = `sess-${crypto.randomBytes(32).toString('hex')}`;
   const now = Date.now();
   const expiresAt = now + ttlDays * 24 * 60 * 60 * 1000;
 
@@ -251,6 +268,11 @@ export function createSession(
     expires_at: expiresAt,
     created_at: now,
   };
+}
+
+export function deleteSessionsForUser(userId: string, db: DatabaseSync = getDatabase()): void {
+  const stmt = db.prepare('DELETE FROM sessions WHERE user_id = ?');
+  stmt.run(userId);
 }
 
 export function getSession(sessionId: string, db: DatabaseSync = getDatabase()): (Session & { user: User }) | null {

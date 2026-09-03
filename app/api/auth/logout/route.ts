@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { deleteSession } from '../../../../lib/db';
+import { deleteSession, getSession } from '../../../../lib/db';
 import { SESSION_COOKIE_NAME } from '../../../../lib/auth';
 
 export async function POST() {
@@ -8,6 +8,10 @@ export async function POST() {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
     if (sessionCookie?.value) {
+      const session = getSession(sessionCookie.value);
+      if (session) {
+        console.info(`[Security] User ${session.user.id} logged out. Invalidating session ${session.id}`);
+      }
       deleteSession(sessionCookie.value);
     }
 
@@ -16,6 +20,7 @@ export async function POST() {
     return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[Security] Logout error:', err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

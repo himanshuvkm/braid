@@ -13,21 +13,26 @@ function LoginForm() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const handleLogin = async (loginEmail: string, loginName?: string, userId?: string) => {
+  const handleLogin = async (loginEmail: string, loginPassword?: string, userId?: string) => {
     setError(null);
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, name: loginName, userId }),
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword || password,
+          userId,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to sign in');
+        throw new Error(data.error || 'Invalid email or password');
       }
 
       startTransition(() => {
@@ -41,8 +46,12 @@ function LoginForm() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      setError('Please enter your name and email');
+    if (!name.trim() || !email.trim() || !password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
       return;
     }
     setError(null);
@@ -51,7 +60,11 @@ function LoginForm() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        }),
       });
 
       const data = await res.json();
@@ -133,7 +146,7 @@ function LoginForm() {
 
         {/* Credentials Form */}
         <form
-          onSubmit={tab === 'signin' ? (e) => { e.preventDefault(); handleLogin(email, name); } : handleRegister}
+          onSubmit={tab === 'signin' ? (e) => { e.preventDefault(); handleLogin(email, password); } : handleRegister}
           className="flex flex-col gap-3.5"
         >
           {tab === 'signup' && (
@@ -168,12 +181,28 @@ function LoginForm() {
             />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="auth-password" className="text-xs font-semibold text-[#191919]">
+              Password {tab === 'signup' && <span className="text-[10px] text-[#9a9994] font-normal">(min. 8 characters)</span>}
+            </label>
+            <input
+              id="auth-password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] text-sm text-[#191919] placeholder-[#9a9994] outline-none focus:border-[#191919]"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={isPending}
             className="w-full py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center justify-center gap-1.5 mt-2 disabled:opacity-50"
           >
-            <span>{isPending ? 'Connecting...' : tab === 'signin' ? 'Continue →' : 'Create Account →'}</span>
+            <span>{isPending ? 'Authenticating...' : tab === 'signin' ? 'Sign In →' : 'Create Account →'}</span>
           </button>
         </form>
 
@@ -184,13 +213,13 @@ function LoginForm() {
           <div className="flex-1 h-[1px] bg-[#e8e6e1]" />
         </div>
 
-        {/* 1-Click Demo Profiles */}
+        {/* 1-Click Demo Profiles (Enabled for development) */}
         <div className="grid grid-cols-3 gap-2">
           {demoUsers.map((u) => (
             <button
               key={u.id}
               type="button"
-              onClick={() => handleLogin(u.email, u.name, u.id)}
+              onClick={() => handleLogin(u.email, 'password123', u.id)}
               disabled={isPending}
               className="flex flex-col items-center p-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] hover:border-[#191919] hover:bg-[#ffffff] transition-all text-center group disabled:opacity-50"
             >

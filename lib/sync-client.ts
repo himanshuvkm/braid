@@ -387,7 +387,13 @@ export class SyncClient {
     }
 
     try {
-      this.socket = new WSClass(this.config.serverUrl);
+      let targetUrl = this.config.serverUrl;
+      if (this.config.sessionId && !targetUrl.includes('sessionId=') && !targetUrl.includes('token=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}sessionId=${encodeURIComponent(this.config.sessionId)}`;
+      }
+
+      this.socket = new WSClass(targetUrl);
 
       this.socket.onopen = () => {
         this.setStatus('connected');

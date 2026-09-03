@@ -1,7 +1,9 @@
 import type { WebSocketServer, WebSocket } from 'ws';
+import type { IncomingMessage } from 'node:http';
 import type { Op } from '../crdt-engine/src/index';
 import { RGA } from '../crdt-engine/src/index';
 import { getProject, getProjectRole, getSession, type ProjectRole } from '../lib/db';
+import { SESSION_COOKIE_NAME } from '../lib/auth';
 
 export interface PeerInfo {
   siteId: string;
@@ -36,6 +38,8 @@ export interface ClientConnection {
   siteId?: string;
   docId?: string;
   userId?: string;
+  authenticatedUserId?: string;
+  sessionId?: string;
   name?: string;
   color?: string;
   cursor?: number;
@@ -50,10 +54,13 @@ export interface AuthResult {
   role?: ProjectRole;
   readOnly?: boolean;
   userId?: string;
+  error?: string;
+  code?: number;
 }
 
 export type AuthorizerFn = (params: {
   docId: string;
+  authenticatedUserId?: string;
   userId?: string;
   sessionId?: string;
   siteId: string;
@@ -75,22 +82,48 @@ export function textToBaselineOps(text: string, baselineSiteId: string = 'init')
 }
 
 /**
- * Default room authorizer enforcing project permissions via database
+ * Parse session ID from HTTP Cookie header or URL query string
+ */
+export function extractSessionId(cookieHeader?: string, urlString?: string): string | undefined {
+  if (cookieHeader) {
+    const match = cookieHeader.match(new RegExp(`(?:^|; )${SESSION_COOKIE_NAME}=([^;]*)`));
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+
+  if (urlString) {
+    try {
+      const url = new URL(urlString, 'http://localhost');
+      const param = url.searchParams.get('sessionId') || url.searchParams.get('token');
+      if (param) return param;
+    } catch {}
+  }
+
+  return undefined;
+}
+
+/**
+ * Default production authorizer:
+ * Validates project permissions against SQLite based strictly on authenticated user identity.
+ * NEVER trusts unauthenticated client-supplied user IDs.
  */
 export function defaultAuthorizer(params: {
   docId: string;
+  authenticatedUserId?: string;
   userId?: string;
   sessionId?: string;
 }): AuthResult {
   const { docId } = params;
 
-  // Non-project rooms (e.g. 'demo', 'presence-doc', legacy unit tests) allow open access
+  // Non-project rooms (e.g. 'demo', public sandboxes) allow open access
   if (!docId.startsWith('proj-')) {
-    return { allowed: true, role: 'OWNER', readOnly: false };
+    return { allowed: true, role: 'OWNER', readOnly: false, userId: params.authenticatedUserId || params.userId };
   }
 
-  // Resolve user identity from userId or sessionId
-  let userId = params.userId;
+  let userId = params.authenticatedUserId;
+
+  // If not yet resolved from connection, verify session against database
   if (!userId && params.sessionId) {
     try {
       const session = getSession(params.sessionId);
@@ -101,13 +134,21 @@ export function defaultAuthorizer(params: {
   }
 
   if (!userId) {
-    return { allowed: false };
+    return {
+      allowed: false,
+      code: 401,
+      error: 'Unauthorized: Authentication required to access this project',
+    };
   }
 
   try {
     const role = getProjectRole(docId, userId);
     if (!role) {
-      return { allowed: false };
+      return {
+        allowed: false,
+        code: 403,
+        error: 'Forbidden: You do not have access to this project',
+      };
     }
 
     return {
@@ -117,21 +158,57 @@ export function defaultAuthorizer(params: {
       userId,
     };
   } catch {
-    return { allowed: false };
+    return {
+      allowed: false,
+      code: 500,
+      error: 'Internal authorization error',
+    };
   }
 }
 
 /**
- * SyncServer acts as a lightweight, CRDT relay, room router, and authorization gate.
+ * SyncServer acts as a lightweight, CRDT relay, room router, and production authorization gate.
  */
 export class SyncServer {
   private rooms: Map<string, Set<ClientConnection>> = new Map();
   private docHistory: Map<string, Op[]> = new Map();
   private siteClocks: Map<string, Map<string, number>> = new Map(); // docId -> (siteId -> highest counter)
   private authorizer: AuthorizerFn;
+  private sessionCheckInterval?: NodeJS.Timeout;
 
   constructor(authorizer?: AuthorizerFn) {
     this.authorizer = authorizer || defaultAuthorizer;
+    this.startPeriodicSessionValidation();
+  }
+
+  /**
+   * Periodic re-validation to ensure logged-out or revoked sessions are promptly disconnected.
+   */
+  private startPeriodicSessionValidation(): void {
+    if (typeof setInterval !== 'undefined') {
+      this.sessionCheckInterval = setInterval(() => {
+        for (const room of this.rooms.values()) {
+          for (const client of room) {
+            if (client.docId?.startsWith('proj-') && client.sessionId) {
+              const session = getSession(client.sessionId);
+              if (!session) {
+                console.info(`[SyncServer] Disconnecting revoked session socket for user ${client.userId}`);
+                client.send(
+                  JSON.stringify({
+                    type: 'error',
+                    docId: client.docId,
+                    error: 'Session expired or invalidated',
+                    code: 401,
+                  })
+                );
+                client.close?.();
+              }
+            }
+          }
+        }
+      }, 30000);
+      this.sessionCheckInterval.unref?.();
+    }
   }
 
   /**
@@ -152,8 +229,8 @@ export class SyncServer {
           siteId: msg.siteId,
           name: msg.name,
           color: msg.color,
-          userId: msg.userId,
           sessionId: msg.sessionId,
+          userId: msg.userId,
         });
         break;
 
@@ -196,21 +273,44 @@ export class SyncServer {
   async joinRoom(
     docId: string,
     client: ClientConnection,
-    info?: { siteId?: string; name?: string; color?: string; userId?: string; sessionId?: string }
+    info?: { siteId?: string; name?: string; color?: string; sessionId?: string; userId?: string }
   ): Promise<boolean> {
     const siteId = info?.siteId || client.siteId || 'anonymous';
-    const userId = info?.userId || client.userId;
-    const sessionId = info?.sessionId;
+    const sessionId = info?.sessionId || client.sessionId;
 
-    // 1. Authorize connection for project rooms
-    const auth = await this.authorizer({ docId, userId, sessionId, siteId });
+    // Resolve authenticated identity from session if not yet resolved on connection
+    if (!client.authenticatedUserId && sessionId) {
+      try {
+        const session = getSession(sessionId);
+        if (session) {
+          client.authenticatedUserId = session.user.id;
+          client.sessionId = session.id;
+          if (!client.name) client.name = session.user.name;
+        }
+      } catch {}
+    }
+
+    const authenticatedUserId = client.authenticatedUserId;
+
+    // 1. Authorize connection based on authenticated identity
+    const auth = await this.authorizer({
+      docId,
+      authenticatedUserId,
+      userId: authenticatedUserId || info?.userId,
+      sessionId,
+      siteId,
+    });
+
     if (!auth.allowed) {
+      console.warn(
+        `[SyncServer] Unauthorized room join rejected: docId=${docId}, user=${authenticatedUserId || 'none'}, code=${auth.code || 403}`
+      );
       client.send(
         JSON.stringify({
           type: 'error',
           docId,
-          error: 'Forbidden: You do not have access to this project',
-          code: 403,
+          error: auth.error || 'Forbidden: Access denied',
+          code: auth.code || 403,
         })
       );
       if (client.close) {
@@ -227,7 +327,7 @@ export class SyncServer {
     if (info?.siteId) client.siteId = info.siteId;
     if (info?.name) client.name = info.name;
     if (info?.color) client.color = info.color;
-    if (auth.userId) client.userId = auth.userId;
+    client.userId = auth.userId || authenticatedUserId;
     client.role = auth.role;
     client.isReadOnly = auth.readOnly ?? (auth.role === 'VIEWER');
 
@@ -406,7 +506,6 @@ export class SyncServer {
       }
 
       if (room.size === 0) {
-        // Keep docHistory in memory for future reconnects / late joiners
         this.rooms.delete(docId);
       }
     }
@@ -452,15 +551,47 @@ export class SyncServer {
   }
 
   /**
-   * Bind to a Node.js WebSocketServer instance
+   * Stop background timers
+   */
+  close(): void {
+    if (this.sessionCheckInterval) {
+      clearInterval(this.sessionCheckInterval);
+    }
+  }
+
+  /**
+   * Bind to a Node.js WebSocketServer instance with HTTP upgrade authentication
    */
   attachWebSocketServer(wss: WebSocketServer): void {
     let clientCounter = 0;
 
-    wss.on('connection', (ws: WebSocket) => {
+    wss.on('connection', (ws: WebSocket, req?: IncomingMessage) => {
       const clientId = `conn-${++clientCounter}-${Date.now().toString(36)}`;
+
+      // Extract and validate session cookie from HTTP upgrade handshake
+      let authenticatedUserId: string | undefined;
+      let sessionId: string | undefined;
+      let userName: string | undefined;
+
+      if (req) {
+        const extracted = extractSessionId(req.headers.cookie, req.url);
+        if (extracted) {
+          sessionId = extracted;
+          try {
+            const session = getSession(extracted);
+            if (session) {
+              authenticatedUserId = session.user.id;
+              userName = session.user.name;
+            }
+          } catch {}
+        }
+      }
+
       const client: ClientConnection = {
         id: clientId,
+        authenticatedUserId,
+        sessionId,
+        name: userName,
         send: (data: string) => {
           if (ws.readyState === ws.OPEN) {
             ws.send(data);
