@@ -181,6 +181,18 @@ export class SyncServer {
     this.startPeriodicSessionValidation();
   }
 
+  getRoomCount(): number {
+    return this.rooms.size;
+  }
+
+  getClientCount(): number {
+    let count = 0;
+    for (const room of this.rooms.values()) {
+      count += room.size;
+    }
+    return count;
+  }
+
   /**
    * Periodic re-validation to ensure logged-out or revoked sessions are promptly disconnected.
    */

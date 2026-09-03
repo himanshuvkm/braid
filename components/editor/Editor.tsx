@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { RGA } from '../../crdt-engine/src/index';
 import type { Op, OpId } from '../../crdt-engine/src/index';
 import { SyncClient, ConnectionStatus } from '../../lib/sync-client';
+import { getWebSocketUrl } from '../../lib/ws-config';
 import type { PeerInfo } from '../../sync-server/server';
 import { getStoredUserName, setStoredUserName, getStoredRoomName, setStoredRoomName } from '../../lib/room-storage';
 import {
@@ -196,12 +197,7 @@ export const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     if (!siteId || !isJoined || !activeUserName) return;
 
-    const wsUrl =
-      propServerUrl ||
-      process.env.NEXT_PUBLIC_WS_URL ||
-      (typeof window !== 'undefined'
-        ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:4444`
-        : 'ws://localhost:4444');
+    const wsUrl = getWebSocketUrl(propServerUrl);
 
     const client = new SyncClient({
       serverUrl: wsUrl,
@@ -767,8 +763,10 @@ export const Editor: React.FC<EditorProps> = ({
               className={`w-1.5 h-1.5 rounded-full ${
                 connectionStatus === 'connected'
                   ? 'bg-emerald-500'
-                  : connectionStatus === 'connecting'
+                  : connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
                   ? 'bg-amber-500 animate-pulse'
+                  : connectionStatus === 'error'
+                  ? 'bg-rose-500'
                   : 'bg-neutral-400'
               }`}
             />
@@ -777,6 +775,10 @@ export const Editor: React.FC<EditorProps> = ({
                 ? '✓ Synced'
                 : connectionStatus === 'connecting'
                 ? 'Connecting...'
+                : connectionStatus === 'reconnecting'
+                ? 'Reconnecting...'
+                : connectionStatus === 'error'
+                ? 'Sync Error'
                 : 'Offline'}
             </span>
           </div>
@@ -858,17 +860,42 @@ export const Editor: React.FC<EditorProps> = ({
       </div>
 
       {/* Offline Warning Banner */}
-      {connectionStatus === 'disconnected' && (
+      {connectionStatus === 'offline' && (
         <div className="px-6 py-2 bg-[#fef3c7] border-b border-[#fde68a] text-xs font-medium text-[#92400e] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>⚠️</span>
-            <span>You are editing offline. Edits will synchronize automatically when reconnected.</span>
+            <span>You are offline. Edits are saved locally and will synchronize when your network returns.</span>
           </div>
           {pendingOpsCount > 0 && (
             <span className="font-semibold bg-[#fde68a] px-2 py-0.5 rounded-full text-[11px]">
               {pendingOpsCount} queued
             </span>
           )}
+        </div>
+      )}
+
+      {/* Reconnecting Banner */}
+      {connectionStatus === 'reconnecting' && (
+        <div className="px-6 py-2 bg-[#eff6ff] border-b border-[#dbeafe] text-xs font-medium text-[#1e40af] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icons.Spinner size={12} className="animate-spin text-[#3b82f6]" />
+            <span>Reconnecting to Braid sync server...</span>
+          </div>
+          {pendingOpsCount > 0 && (
+            <span className="font-semibold bg-[#dbeafe] px-2 py-0.5 rounded-full text-[11px]">
+              {pendingOpsCount} queued
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {connectionStatus === 'error' && (
+        <div className="px-6 py-2 bg-[#fef2f2] border-b border-[#fecaca] text-xs font-medium text-[#991b1b] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icons.AlertCircle size={14} className="text-[#dc2626]" />
+            <span>Sync server error: your session may have expired or project access was rejected.</span>
+          </div>
         </div>
       )}
 

@@ -2,7 +2,13 @@ import type { Op } from '../crdt-engine/src/index';
 import { RGA, idKey } from '../crdt-engine/src/index';
 import type { PeerInfo, SyncMessage } from '../sync-server/server';
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+export type ConnectionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'offline'
+  | 'error'
+  | 'disconnected';
 
 export interface BufferedOpEntry {
   op: Op;
@@ -328,10 +334,32 @@ export class SyncClient {
 
     this.resetJoinedPromise();
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.handleOnline);
+      window.addEventListener('offline', this.handleOffline);
+    }
+
     if (this.config.autoConnect) {
       this.connect();
     }
   }
+
+  private handleOnline = (): void => {
+    console.log('[SyncClient] network restored (navigator.onLine=true)');
+    if (!this.intentionallyClosed && this.status !== 'connected' && this.status !== 'error') {
+      this.currentReconnectDelay = this.config.reconnectIntervalMs;
+      this.connect();
+    }
+  };
+
+  private handleOffline = (): void => {
+    console.log('[SyncClient] network offline (navigator.onLine=false)');
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.setStatus('offline');
+  };
 
   private resetJoinedPromise(): void {
     this.joinedPromise = new Promise<void>((resolve) => {
@@ -372,6 +400,13 @@ export class SyncClient {
 
   connect(): void {
     if (this.status === 'connected' || this.status === 'connecting') return;
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      console.log('[SyncClient] network offline, postponing connection');
+      this.setStatus('offline');
+      return;
+    }
+
     this.intentionallyClosed = false;
     this.resetJoinedPromise();
     this.setStatus('connecting');
@@ -393,9 +428,13 @@ export class SyncClient {
         targetUrl = `${targetUrl}${separator}sessionId=${encodeURIComponent(this.config.sessionId)}`;
       }
 
+      const safeLogUrl = targetUrl.replace(/([?&](sessionId|token)=)[^&]+/i, '$1[REDACTED]');
+      console.log(`[SyncClient] connecting ${safeLogUrl}`);
+
       this.socket = new WSClass(targetUrl);
 
       this.socket.onopen = () => {
+        console.log('[SyncClient] websocket opened');
         this.setStatus('connected');
         this.currentReconnectDelay = this.config.reconnectIntervalMs;
         this.sendJoin();
@@ -413,12 +452,21 @@ export class SyncClient {
         }
       };
 
-      this.socket.onclose = () => {
+      this.socket.onclose = (event?: { code?: number; reason?: string }) => {
         this.socket = null;
         this.peers.clear();
-        this.setStatus('disconnected');
-        if (!this.intentionallyClosed) {
+        const code = event?.code ?? 1006;
+        console.log(`[SyncClient] websocket closed code=${code} reason=${event?.reason || 'none'}`);
+
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          this.setStatus('offline');
+        } else if (this.status === 'error') {
+          // Keep error state
+        } else if (!this.intentionallyClosed) {
+          this.setStatus('reconnecting');
           this.scheduleReconnect();
+        } else {
+          this.setStatus('disconnected');
         }
       };
 
@@ -428,9 +476,13 @@ export class SyncClient {
     } catch (err) {
       console.error('[SyncClient] Failed to open WebSocket connection:', err);
       this.peers.clear();
-      this.setStatus('disconnected');
-      if (!this.intentionallyClosed) {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        this.setStatus('offline');
+      } else if (!this.intentionallyClosed) {
+        this.setStatus('reconnecting');
         this.scheduleReconnect();
+      } else {
+        this.setStatus('disconnected');
       }
     }
   }
@@ -444,8 +496,14 @@ export class SyncClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimeout || this.intentionallyClosed) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      this.setStatus('offline');
+      return;
+    }
 
     const delay = this.currentReconnectDelay;
+    console.log(`[SyncClient] reconnecting in ${delay}ms`);
+
     this.currentReconnectDelay = Math.min(
       this.currentReconnectDelay * 1.5,
       this.config.maxReconnectIntervalMs
@@ -453,7 +511,7 @@ export class SyncClient {
 
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
-      if (!this.intentionallyClosed && this.status === 'disconnected') {
+      if (!this.intentionallyClosed && (this.status === 'reconnecting' || this.status === 'disconnected')) {
         this.connect();
       }
     }, delay);
@@ -635,10 +693,22 @@ export class SyncClient {
 
       case 'error':
         this.config.onError?.({ message: msg.error, code: msg.code });
-        if (msg.code === 403) {
-          // If unauthorized, do not continually retry reconnects
+        if (msg.code === 401) {
+          console.warn('[SyncClient] authentication rejected (code: 401)');
           this.intentionallyClosed = true;
-          this.setStatus('disconnected');
+          if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+          }
+          this.setStatus('error');
+        } else if (msg.code === 403) {
+          console.warn('[SyncClient] project authorization rejected (code: 403)');
+          this.intentionallyClosed = true;
+          if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+          }
+          this.setStatus('error');
         }
         break;
     }
@@ -646,6 +716,10 @@ export class SyncClient {
 
   disconnect(): void {
     this.intentionallyClosed = true;
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', this.handleOnline);
+      window.removeEventListener('offline', this.handleOffline);
+    }
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
