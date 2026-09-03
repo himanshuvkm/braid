@@ -161,6 +161,11 @@ export class RGA {
       .join("");
   }
 
+  /** String representation of document text (alias for getText). */
+  toString(): string {
+    return this.getText();
+  }
+
   /** Full node list including tombstones — used by tombstone.ts / debugging. */
   getNodes(): readonly Node[] {
     return this.seq;

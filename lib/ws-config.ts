@@ -31,14 +31,19 @@ export function validateWebSocketUrl(url: string): { valid: boolean; error?: str
         error: `Invalid WebSocket protocol: "${parsed.protocol}". Must use "ws:" or "wss:".`,
       };
     }
-    if (
-      process.env.NODE_ENV === 'production' &&
-      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
-    ) {
-      return {
-        valid: false,
-        error: 'Production WebSocket URL must not point to localhost or loopback.',
-      };
+    if (process.env.NODE_ENV === 'production') {
+      if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+        return {
+          valid: false,
+          error: 'Production WebSocket URL must not point to localhost or loopback.',
+        };
+      }
+      if (parsed.protocol !== 'wss:') {
+        return {
+          valid: false,
+          error: 'Production WebSocket URL must use secure "wss:" protocol.',
+        };
+      }
     }
     return { valid: true };
   } catch {

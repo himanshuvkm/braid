@@ -1,8 +1,7 @@
 import type { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
-import type { Op } from '../crdt-engine/src/index';
-import { RGA } from '../crdt-engine/src/index';
-import { getProject, getProjectRole, getSession, type ProjectRole } from '../lib/db';
+import { RGA, type Op } from '../crdt-engine/src/index';
+import { getProject, getProjectRole, getSession, updateProjectContent, type ProjectRole } from '../lib/db';
 import { SESSION_COOKIE_NAME } from '../lib/auth';
 
 export interface PeerInfo {
@@ -108,12 +107,12 @@ export function extractSessionId(cookieHeader?: string, urlString?: string): str
  * Validates project permissions against SQLite based strictly on authenticated user identity.
  * NEVER trusts unauthenticated client-supplied user IDs.
  */
-export function defaultAuthorizer(params: {
+export async function defaultAuthorizer(params: {
   docId: string;
   authenticatedUserId?: string;
   userId?: string;
   sessionId?: string;
-}): AuthResult {
+}): Promise<AuthResult> {
   const { docId } = params;
 
   // Non-project rooms (e.g. 'demo', public sandboxes) allow open access
@@ -126,7 +125,7 @@ export function defaultAuthorizer(params: {
   // If not yet resolved from connection, verify session against database
   if (!userId && params.sessionId) {
     try {
-      const session = getSession(params.sessionId);
+      const session = await getSession(params.sessionId);
       if (session) {
         userId = session.user.id;
       }
@@ -142,7 +141,7 @@ export function defaultAuthorizer(params: {
   }
 
   try {
-    const role = getProjectRole(docId, userId);
+    const role = await getProjectRole(docId, userId);
     if (!role) {
       return {
         allowed: false,
@@ -175,6 +174,7 @@ export class SyncServer {
   private siteClocks: Map<string, Map<string, number>> = new Map(); // docId -> (siteId -> highest counter)
   private authorizer: AuthorizerFn;
   private sessionCheckInterval?: NodeJS.Timeout;
+  private snapshotDebounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(authorizer?: AuthorizerFn) {
     this.authorizer = authorizer || defaultAuthorizer;
@@ -198,11 +198,11 @@ export class SyncServer {
    */
   private startPeriodicSessionValidation(): void {
     if (typeof setInterval !== 'undefined') {
-      this.sessionCheckInterval = setInterval(() => {
+      this.sessionCheckInterval = setInterval(async () => {
         for (const room of this.rooms.values()) {
           for (const client of room) {
             if (client.docId?.startsWith('proj-') && client.sessionId) {
-              const session = getSession(client.sessionId);
+              const session = await getSession(client.sessionId);
               if (!session) {
                 console.info(`[SyncServer] Disconnecting revoked session socket for user ${client.userId}`);
                 client.send(
@@ -293,7 +293,7 @@ export class SyncServer {
     // Resolve authenticated identity from session if not yet resolved on connection
     if (!client.authenticatedUserId && sessionId) {
       try {
-        const session = getSession(sessionId);
+        const session = await getSession(sessionId);
         if (session) {
           client.authenticatedUserId = session.user.id;
           client.sessionId = session.id;
@@ -350,7 +350,7 @@ export class SyncServer {
       // If document history is not initialized, check for persisted database snapshot
       if (!this.docHistory.has(docId)) {
         try {
-          const project = getProject(docId);
+          const project = await getProject(docId);
           if (project && project.content) {
             this.docHistory.set(docId, textToBaselineOps(project.content));
           } else {
@@ -418,6 +418,7 @@ export class SyncServer {
     const history = this.docHistory.get(docId);
     if (history) {
       history.push(op);
+      this.scheduleSnapshotPersistence(docId, 2000);
     }
 
     // Track clock for GC stability
@@ -563,12 +564,58 @@ export class SyncServer {
   }
 
   /**
-   * Stop background timers
+   * Reconstruct document text from CRDT history and persist snapshot to database
    */
-  close(): void {
+  async persistDocumentSnapshot(docId: string): Promise<void> {
+    if (!docId.startsWith('proj-')) return;
+    const history = this.docHistory.get(docId);
+    if (!history || history.length === 0) return;
+
+    try {
+      const rga = new RGA('server-snapshot');
+      for (const op of history) {
+        rga.applyRemote(op);
+      }
+      const text = rga.toString();
+      await updateProjectContent(docId, text);
+    } catch (err) {
+      console.error(`[SyncServer] Failed to persist snapshot for ${docId}:`, err);
+    }
+  }
+
+  scheduleSnapshotPersistence(docId: string, delayMs: number = 2000): void {
+    if (!docId.startsWith('proj-')) return;
+    const existing = this.snapshotDebounceTimers.get(docId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      this.snapshotDebounceTimers.delete(docId);
+      await this.persistDocumentSnapshot(docId);
+    }, delayMs);
+
+    this.snapshotDebounceTimers.set(docId, timer);
+  }
+
+  async flushAllSnapshots(): Promise<void> {
+    for (const [docId, timer] of this.snapshotDebounceTimers.entries()) {
+      clearTimeout(timer);
+      this.snapshotDebounceTimers.delete(docId);
+    }
+    const promises: Promise<void>[] = [];
+    for (const docId of this.rooms.keys()) {
+      promises.push(this.persistDocumentSnapshot(docId));
+    }
+    await Promise.all(promises);
+  }
+
+  /**
+   * Stop background timers and flush snapshots
+   */
+  async close(): Promise<void> {
     if (this.sessionCheckInterval) {
       clearInterval(this.sessionCheckInterval);
     }
+    await this.flushAllSnapshots();
   }
 
   /**
@@ -577,7 +624,7 @@ export class SyncServer {
   attachWebSocketServer(wss: WebSocketServer): void {
     let clientCounter = 0;
 
-    wss.on('connection', (ws: WebSocket, req?: IncomingMessage) => {
+    wss.on('connection', async (ws: WebSocket, req?: IncomingMessage) => {
       const clientId = `conn-${++clientCounter}-${Date.now().toString(36)}`;
 
       // Extract and validate session cookie from HTTP upgrade handshake
@@ -590,7 +637,7 @@ export class SyncServer {
         if (extracted) {
           sessionId = extracted;
           try {
-            const session = getSession(extracted);
+            const session = await getSession(extracted);
             if (session) {
               authenticatedUserId = session.user.id;
               userName = session.user.name;

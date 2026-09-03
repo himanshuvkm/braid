@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const existing = getUserByEmail(cleanEmail);
+    const existing = await getUserByEmail(cleanEmail);
     if (existing) {
       // Safe response to prevent account enumeration / collision
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     const passwordHash = await hashPassword(password);
 
-    const user = createUser({
+    const user = await createUser({
       name: name.trim(),
       email: cleanEmail,
       avatar: '👤',
@@ -58,11 +58,11 @@ export async function POST(request: Request) {
     const match = cookieHeader.match(new RegExp(`(?:^|; )${SESSION_COOKIE_NAME}=([^;]*)`));
     if (match && match[1]) {
       try {
-        deleteSession(decodeURIComponent(match[1]));
+        await deleteSession(decodeURIComponent(match[1]));
       } catch {}
     }
 
-    const session = createSession(user.id);
+    const session = await createSession(user.id);
 
     // Return safe user object (excluding password_hash)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

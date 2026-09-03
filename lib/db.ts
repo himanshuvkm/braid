@@ -27,34 +27,36 @@ export type {
 };
 export { SqliteAdapter, PostgresAdapter };
 
-let adapterInstance: DatabaseAdapter | null = null;
+const globalForDb = globalThis as unknown as {
+  braidDbAdapter?: DatabaseAdapter | null;
+};
 
 export function setAdapter(adapter: DatabaseAdapter | null): void {
-  adapterInstance = adapter;
+  globalForDb.braidDbAdapter = adapter;
 }
 
 export function getAdapter(targetPathOrUrl?: string): DatabaseAdapter {
-  if (adapterInstance && !targetPathOrUrl) {
-    return adapterInstance;
+  if (globalForDb.braidDbAdapter && !targetPathOrUrl) {
+    return globalForDb.braidDbAdapter;
   }
 
   const connStr = targetPathOrUrl || process.env.DATABASE_URL;
   if (connStr && (connStr.startsWith('postgres://') || connStr.startsWith('postgresql://'))) {
-    adapterInstance = new PostgresAdapter(connStr);
-    return adapterInstance;
+    globalForDb.braidDbAdapter = new PostgresAdapter(connStr);
+    return globalForDb.braidDbAdapter;
   }
 
   const sqlite = new SqliteAdapter(targetPathOrUrl);
-  adapterInstance = sqlite;
-  return adapterInstance;
+  globalForDb.braidDbAdapter = sqlite;
+  return globalForDb.braidDbAdapter;
 }
 
 // Backward-compatibility helpers for DatabaseSync (SQLite-specific tests)
 export function setDatabase(db: DatabaseSync | null): void {
   if (!db) {
-    adapterInstance = null;
+    globalForDb.braidDbAdapter = null;
   } else {
-    adapterInstance = new SqliteAdapter(db);
+    globalForDb.braidDbAdapter = new SqliteAdapter(db);
   }
 }
 

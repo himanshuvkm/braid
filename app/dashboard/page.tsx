@@ -9,7 +9,7 @@ export default async function DashboardPage() {
     redirect('/login?from=/dashboard');
   }
 
-  const initialProjects = listProjectsForUser(user.id);
+  const initialProjects = await listProjectsForUser(user.id);
 
   return <DashboardClient user={user} initialProjects={initialProjects} />;
 }

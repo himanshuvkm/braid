@@ -14,12 +14,12 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (!role) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -44,12 +44,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (!role || (role !== 'OWNER' && role !== 'EDITOR')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -58,10 +58,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { name } = body;
 
     if (name && typeof name === 'string') {
-      updateProjectName(projectId, name);
+      await updateProjectName(projectId, name);
     }
 
-    const updated = getProject(projectId);
+    const updated = await getProject(projectId);
     return NextResponse.json({ project: updated });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -77,17 +77,17 @@ export async function DELETE(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (role !== 'OWNER') {
       return NextResponse.json({ error: 'Only the project owner can delete this project' }, { status: 403 });
     }
 
-    deleteProject(projectId);
+    await deleteProject(projectId);
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

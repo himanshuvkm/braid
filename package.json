@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "db:migrate": "tsx lib/db/migrate.ts",
     "sync-server": "tsx sync-server/index.ts",
     "bench": "tsx benchmarks/concurrent-editors.bench.ts"
   },

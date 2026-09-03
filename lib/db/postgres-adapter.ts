@@ -10,6 +10,7 @@ import type {
   CreateUserData,
   CreateProjectData,
 } from './types';
+import { runMigrations } from './migrations';
 
 export class PostgresAdapter implements DatabaseAdapter {
   readonly type = 'postgres' as const;
@@ -17,21 +18,32 @@ export class PostgresAdapter implements DatabaseAdapter {
   private isInitialized = false;
 
   constructor(connectionStringOrConfig?: string | PoolConfig) {
+    const baseConfig: Partial<PoolConfig> = {
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    };
+
     if (typeof connectionStringOrConfig === 'string') {
       this.pool = new Pool({
+        ...baseConfig,
         connectionString: connectionStringOrConfig,
         ssl: process.env.NODE_ENV === 'production' && !connectionStringOrConfig.includes('localhost')
           ? { rejectUnauthorized: false }
           : undefined,
       });
     } else if (connectionStringOrConfig && typeof connectionStringOrConfig === 'object') {
-      this.pool = new Pool(connectionStringOrConfig);
+      this.pool = new Pool({
+        ...baseConfig,
+        ...connectionStringOrConfig,
+      });
     } else {
       const connStr = process.env.DATABASE_URL;
       if (!connStr) {
         throw new Error('[PostgresAdapter] DATABASE_URL environment variable is required');
       }
       this.pool = new Pool({
+        ...baseConfig,
         connectionString: connStr,
         ssl: process.env.NODE_ENV === 'production' && !connStr.includes('localhost')
           ? { rejectUnauthorized: false }
@@ -46,50 +58,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
-
-    await this.pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        avatar TEXT,
-        password_hash TEXT,
-        created_at BIGINT NOT NULL,
-        updated_at BIGINT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS sessions (
-        id VARCHAR(255) PRIMARY KEY,
-        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        expires_at BIGINT NOT NULL,
-        created_at BIGINT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS projects (
-        id VARCHAR(255) PRIMARY KEY,
-        owner_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        content TEXT NOT NULL DEFAULT '',
-        created_at BIGINT NOT NULL,
-        updated_at BIGINT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS project_members (
-        id VARCHAR(255) PRIMARY KEY,
-        project_id VARCHAR(255) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        role VARCHAR(50) NOT NULL CHECK (role IN ('OWNER', 'EDITOR', 'VIEWER')),
-        created_at BIGINT NOT NULL,
-        CONSTRAINT uq_project_member UNIQUE (project_id, user_id)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-      CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
-      CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
-      CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
-    `);
-
+    await runMigrations(this);
     this.isInitialized = true;
   }
 

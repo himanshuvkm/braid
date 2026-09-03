@@ -14,12 +14,12 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (!role || (role !== 'OWNER' && role !== 'EDITOR')) {
       return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
     }
@@ -31,7 +31,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Invalid content format' }, { status: 400 });
     }
 
-    updateProjectContent(projectId, content);
+    await updateProjectContent(projectId, content);
 
     return NextResponse.json({
       success: true,

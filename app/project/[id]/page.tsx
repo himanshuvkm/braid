@@ -21,7 +21,7 @@ export default async function ProjectPage(props: PageProps) {
   }
 
   // 2. Query project from database
-  const project = getProject(projectId);
+  const project = await getProject(projectId);
   if (!project) {
     return (
       <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-[#191919]/10">
@@ -44,7 +44,7 @@ export default async function ProjectPage(props: PageProps) {
   }
 
   // 3. Check authorization role
-  const role = getProjectRole(projectId, user.id);
+  const role = await getProjectRole(projectId, user.id);
   if (!role) {
     return (
       <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-[#191919]/10">

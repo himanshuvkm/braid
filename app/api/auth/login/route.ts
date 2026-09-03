@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     // 1. Development-only 1-click demo profile access
     if (userId && process.env.NODE_ENV !== 'production') {
-      user = getUserById(userId);
+      user = await getUserById(userId);
     } else {
       // 2. Standard production credential verification
       if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
@@ -34,11 +34,13 @@ export async function POST(request: Request) {
       }
 
       const cleanEmail = email.toLowerCase().trim();
-      const existingUser = getUserByEmail(cleanEmail);
+      const existingUser = await getUserByEmail(cleanEmail);
 
       if (!existingUser || !existingUser.password_hash) {
         // Generic error to prevent account enumeration
         console.warn(`[Security] Failed login attempt for ${cleanEmail} from IP ${ip} (user not found)`);
+        // Constant-time dummy verification to mitigate timing attacks
+        await verifyPassword(password, '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
       }
 
@@ -62,12 +64,12 @@ export async function POST(request: Request) {
     const match = cookieHeader.match(new RegExp(`(?:^|; )${SESSION_COOKIE_NAME}=([^;]*)`));
     if (match && match[1]) {
       try {
-        deleteSession(decodeURIComponent(match[1]));
+        await deleteSession(decodeURIComponent(match[1]));
       } catch {}
     }
 
     // Create fresh cryptographic session
-    const session = createSession(user.id);
+    const session = await createSession(user.id);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash: _unused, ...safeUser } = user;

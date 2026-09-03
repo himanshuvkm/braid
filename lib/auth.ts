@@ -14,7 +14,7 @@ export async function getCurrentUser(): Promise<User | null> {
       return null;
     }
 
-    const sessionData = getSession(sessionCookie.value);
+    const sessionData = await getSession(sessionCookie.value);
     if (!sessionData) {
       return null;
     }
@@ -44,7 +44,7 @@ export async function requireProjectAccess(
   requiredRole: 'VIEWER' | 'EDITOR' | 'OWNER' = 'VIEWER'
 ): Promise<{ user: User; role: ProjectRole }> {
   const user = await requireAuth();
-  const role = getProjectRole(projectId, user.id);
+  const role = await getProjectRole(projectId, user.id);
 
   if (!role) {
     throw new Error('FORBIDDEN');

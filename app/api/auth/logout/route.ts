@@ -8,11 +8,11 @@ export async function POST() {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
     if (sessionCookie?.value) {
-      const session = getSession(sessionCookie.value);
+      const session = await getSession(sessionCookie.value);
       if (session) {
         console.info(`[Security] User ${session.user.id} logged out. Invalidating session ${session.id}`);
       }
-      deleteSession(sessionCookie.value);
+      await deleteSession(sessionCookie.value);
     }
 
     const response = NextResponse.json({ success: true });

@@ -14,12 +14,12 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (!role) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -27,7 +27,7 @@ export async function POST(request: Request, context: RouteContext) {
     const body = await request.json().catch(() => ({}));
     const { name } = body;
 
-    const duplicated = duplicateProject(projectId, user.id, name);
+    const duplicated = await duplicateProject(projectId, user.id, name);
     if (!duplicated) {
       return NextResponse.json({ error: 'Failed to duplicate project' }, { status: 500 });
     }

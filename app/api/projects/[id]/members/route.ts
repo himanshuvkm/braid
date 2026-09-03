@@ -21,12 +21,12 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (!role) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const members = listProjectMembers(projectId);
+    const members = await listProjectMembers(projectId);
     return NextResponse.json({ members });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (role !== 'OWNER') {
       return NextResponse.json({ error: 'Only project owners can invite members' }, { status: 403 });
     }
@@ -58,12 +58,12 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Role must be EDITOR or VIEWER' }, { status: 400 });
     }
 
-    const targetUser = getUserByEmail(email);
+    const targetUser = await getUserByEmail(email);
     if (!targetUser) {
       return NextResponse.json({ error: `User with email "${email}" not found` }, { status: 404 });
     }
 
-    const project = getProject(projectId);
+    const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
@@ -72,7 +72,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'User is already the project owner' }, { status: 400 });
     }
 
-    addProjectMember(projectId, targetUser.id, memberRole as 'EDITOR' | 'VIEWER');
+    await addProjectMember(projectId, targetUser.id, memberRole as 'EDITOR' | 'VIEWER');
 
     return NextResponse.json({ success: true, member: { user: targetUser, role: memberRole } });
   } catch (err: unknown) {
@@ -89,7 +89,7 @@ export async function DELETE(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = getProjectRole(projectId, user.id);
+    const role = await getProjectRole(projectId, user.id);
     if (role !== 'OWNER') {
       return NextResponse.json({ error: 'Only project owners can remove members' }, { status: 403 });
     }
@@ -101,7 +101,7 @@ export async function DELETE(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    removeProjectMember(projectId, userId);
+    await removeProjectMember(projectId, userId);
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
