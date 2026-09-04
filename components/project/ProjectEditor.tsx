@@ -11,6 +11,7 @@ import { Badge } from '../ui/badge';
 import { Avatar } from '../ui/avatar';
 import { Modal } from '../ui/modal';
 import { useToast } from '../ui/toast';
+import { ExportDropdown } from '../editor/ExportDropdown';
 
 interface ProjectEditorProps {
   project: Project;
@@ -82,6 +83,25 @@ export function ProjectEditor({ project, user, role, initialWsToken }: ProjectEd
     },
     [triggerAutoSave]
   );
+
+  const flushSave = useCallback(async () => {
+    if (pendingSaveContentRef.current !== null && role !== 'VIEWER') {
+      const contentToSave = pendingSaveContentRef.current;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      try {
+        await fetch(`/api/projects/${project.id}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: contentToSave }),
+        });
+        setSaveStatus('saved');
+        pendingSaveContentRef.current = null;
+      } catch {}
+    }
+  }, [project.id, role]);
 
   // Immediate flush on page refresh or unload to eliminate persistence window
   useEffect(() => {
@@ -231,6 +251,15 @@ export function ProjectEditor({ project, user, role, initialWsToken }: ProjectEd
                 : 'Save failed'}
             </span>
           </div>
+
+          {/* Export Dropdown */}
+          <ExportDropdown
+            projectId={project.id}
+            documentTitle={project.name}
+            getContent={() => pendingSaveContentRef.current ?? project.content}
+            onFlushSave={flushSave}
+            size="sm"
+          />
 
           {/* Share Modal Trigger (Available to Owners) */}
           {role === 'OWNER' && (

@@ -18,6 +18,7 @@ import { BlockItem } from './BlockItem';
 import { SlashMenu, type SlashMenuItem } from './SlashMenu';
 import { FormatToolbar } from './FormatToolbar';
 import { DocumentOutline } from './DocumentOutline';
+import { ExportDropdown } from './ExportDropdown';
 import { Icons } from '../ui/icons';
 
 interface EditorProps {
@@ -885,6 +886,16 @@ export const Editor: React.FC<EditorProps> = ({
             <span className="font-semibold">{activeUserName}</span>
             <span className="text-[10px] opacity-60 font-mono">(you)</span>
           </div>
+
+          {/* Export Dropdown for persisted project documents */}
+          {documentId.startsWith('proj-') && (
+            <ExportDropdown
+              projectId={documentId}
+              documentTitle={roomName}
+              getContent={() => rgaRef.current.getText()}
+              size="sm"
+            />
+          )}
 
           {/* Share / Copy Link Button */}
           <button
