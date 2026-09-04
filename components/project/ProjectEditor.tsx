@@ -76,6 +76,13 @@ export function ProjectEditor({ project, user, role, initialWsToken }: ProjectEd
     [project.id, role]
   );
 
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      triggerAutoSave(newContent);
+    },
+    [triggerAutoSave]
+  );
+
   // Immediate flush on page refresh or unload to eliminate persistence window
   useEffect(() => {
     const handleUnload = () => {
@@ -258,9 +265,7 @@ export function ProjectEditor({ project, user, role, initialWsToken }: ProjectEd
           wsToken={initialWsToken}
           isReadOnly={role === 'VIEWER'}
           initialContent={project.content}
-          onContentChange={(newContent) => {
-            triggerAutoSave(newContent);
-          }}
+          onContentChange={handleContentChange}
         />
       </main>
 

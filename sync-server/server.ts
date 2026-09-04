@@ -46,7 +46,7 @@ export interface ClientConnection {
   role?: ProjectRole;
   isReadOnly?: boolean;
   send: (data: string) => void;
-  close?: () => void;
+  close?: (code?: number, reason?: string) => void;
 }
 
 export interface AuthResult {
@@ -284,7 +284,7 @@ export class SyncServer {
             if (client.docId?.startsWith('proj-') && client.sessionId) {
               const session = await getSession(client.sessionId);
               if (!session) {
-                console.info(`[SyncServer] Disconnecting revoked session socket for user ${client.userId}`);
+                console.info(`[SyncServer] Disconnecting revoked session socket: connId=${client.id} user=${client.userId || 'none'}`);
                 client.send(
                   JSON.stringify({
                     type: 'error',
@@ -293,7 +293,7 @@ export class SyncServer {
                     code: 401,
                   })
                 );
-                client.close?.();
+                client.close?.(4401, 'Session invalidated');
               }
             }
           }
@@ -315,48 +315,58 @@ export class SyncServer {
       return;
     }
 
-    switch (msg.type) {
-      case 'join':
-        await this.joinRoom(msg.docId, client, {
-          siteId: msg.siteId,
-          name: msg.name,
-          color: msg.color,
-          sessionId: msg.sessionId,
-          token: msg.token,
-          userId: msg.userId,
-        });
-        break;
+    try {
+      console.log(
+        `[SyncServer] Message received: connId=${client.id} docId=${msg.docId || client.docId || 'none'} user=${client.authenticatedUserId || 'anonymous'} type=${msg.type}`
+      );
 
-      case 'op':
-        if (msg.op && msg.docId) {
-          if (!client.docId || client.docId !== msg.docId) {
-            await this.joinRoom(msg.docId, client, { siteId: msg.siteId || msg.op.id.siteId });
+      switch (msg.type) {
+        case 'join':
+          await this.joinRoom(msg.docId, client, {
+            siteId: msg.siteId,
+            name: msg.name,
+            color: msg.color,
+            sessionId: msg.sessionId,
+            token: msg.token,
+            userId: msg.userId,
+          });
+          break;
+
+        case 'op':
+          if (msg.op && msg.docId) {
+            if (!client.docId || client.docId !== msg.docId) {
+              await this.joinRoom(msg.docId, client, { siteId: msg.siteId || msg.op.id.siteId });
+            }
+            this.handleOperation(client, msg.docId, msg.op);
           }
-          this.handleOperation(client, msg.docId, msg.op);
-        }
-        break;
+          break;
 
-      case 'presence':
-        if (msg.docId) {
-          if (!client.docId) {
-            await this.joinRoom(msg.docId, client, { siteId: msg.siteId });
+        case 'presence':
+          if (msg.docId) {
+            if (!client.docId) {
+              await this.joinRoom(msg.docId, client, { siteId: msg.siteId });
+            }
+            this.handlePresence(client, msg.docId, msg);
           }
-          this.handlePresence(client, msg.docId, msg);
-        }
-        break;
+          break;
 
-      case 'ack':
-        if (msg.docId && msg.siteId && typeof msg.counter === 'number') {
-          this.handleAck(msg.docId, msg.siteId, msg.counter);
-        }
-        break;
+        case 'ack':
+          if (msg.docId && msg.siteId && typeof msg.counter === 'number') {
+            this.handleAck(msg.docId, msg.siteId, msg.counter);
+          }
+          break;
 
-      case 'leave':
-        this.handleDisconnect(client);
-        break;
+        case 'leave':
+          this.handleDisconnect(client);
+          break;
 
-      default:
-        break;
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(
+        `[SyncServer] Uncaught exception processing message: connId=${client.id} docId=${client.docId || 'none'} type=${msg.type} stack=${err instanceof Error ? err.stack : String(err)}`
+      );
     }
   }
 
@@ -406,7 +416,8 @@ export class SyncServer {
         })
       );
       if (client.close) {
-        client.close();
+        const closeCode = auth.code === 401 ? 4401 : auth.code === 403 ? 4403 : 1000;
+        client.close(closeCode, auth.error || 'Authorization failed');
       }
       return false;
     }
@@ -482,8 +493,17 @@ export class SyncServer {
    * Append op to document history and relay to other peers (rejecting VIEWER mutations)
    */
   handleOperation(client: ClientConnection, docId: string, op: Op): void {
+    const opSiteId = op?.id?.siteId || 'unknown';
+    const opCounter = op?.id?.counter ?? 'unknown';
+    console.log(
+      `[SyncServer] Operation received: connId=${client.id} docId=${docId} user=${client.authenticatedUserId || 'anonymous'} opType=${op?.type} opId=${opSiteId}:${opCounter}`
+    );
+
     // Viewer role cannot submit edits to room
     if (client.isReadOnly) {
+      console.warn(
+        `[SyncServer] Operation rejected (viewer is read-only): connId=${client.id} docId=${docId} user=${client.authenticatedUserId || 'anonymous'}`
+      );
       client.send(
         JSON.stringify({
           type: 'error',
@@ -495,33 +515,43 @@ export class SyncServer {
       return;
     }
 
-    const history = this.docHistory.get(docId);
-    if (history) {
-      history.push(op);
-      this.scheduleSnapshotPersistence(docId, 2000);
-    }
-
-    // Track clock for GC stability
-    const siteId = op.id.siteId;
-    const clocks = this.siteClocks.get(docId);
-    if (clocks) {
-      const current = clocks.get(siteId) ?? 0;
-      if (op.id.counter > current) {
-        clocks.set(siteId, op.id.counter);
+    try {
+      const history = this.docHistory.get(docId);
+      if (history) {
+        history.push(op);
+        this.scheduleSnapshotPersistence(docId, 2000);
       }
-    }
 
-    // Relay to other clients in room
-    this.broadcast(
-      docId,
-      {
-        type: 'op',
+      // Track clock for GC stability
+      const siteId = op.id.siteId;
+      const clocks = this.siteClocks.get(docId);
+      if (clocks) {
+        const current = clocks.get(siteId) ?? 0;
+        if (op.id.counter > current) {
+          clocks.set(siteId, op.id.counter);
+        }
+      }
+
+      // Relay to other clients in room
+      this.broadcast(
         docId,
-        siteId: client.siteId || op.id.siteId,
-        op,
-      },
-      client.id
-    );
+        {
+          type: 'op',
+          docId,
+          siteId: client.siteId || op.id.siteId,
+          op,
+        },
+        client.id
+      );
+
+      console.log(
+        `[SyncServer] Operation applied successfully: connId=${client.id} docId=${docId} user=${client.authenticatedUserId || 'anonymous'} opId=${opSiteId}:${opCounter}`
+      );
+    } catch (err) {
+      console.error(
+        `[SyncServer] Operation failed: connId=${client.id} docId=${docId} error=${err instanceof Error ? err.stack : String(err)}`
+      );
+    }
   }
 
   /**
@@ -658,8 +688,11 @@ export class SyncServer {
       }
       const text = rga.toString();
       await updateProjectContent(docId, text);
+      console.log(`[SyncServer] Snapshot persistence success: docId=${docId} ops=${history.length}`);
     } catch (err) {
-      console.error(`[SyncServer] Failed to persist snapshot for ${docId}:`, err);
+      console.error(
+        `[SyncServer] Snapshot persistence failure: docId=${docId} error=${err instanceof Error ? err.stack : String(err)}`
+      );
     }
   }
 
@@ -722,6 +755,10 @@ export class SyncServer {
         }
       }
 
+      console.log(
+        `[SyncServer] WebSocket connected: connId=${clientId} user=${authenticatedUserId || 'anonymous'}`
+      );
+
       const client: ClientConnection = {
         id: clientId,
         authenticatedUserId,
@@ -732,20 +769,36 @@ export class SyncServer {
             ws.send(data);
           }
         },
-        close: () => ws.close(),
+        close: (code: number = 1000, reason: string = 'Normal closure') => {
+          try {
+            ws.close(code, reason);
+          } catch {}
+        },
       };
 
       ws.on('message', async (data: Buffer | string) => {
-        const text = typeof data === 'string' ? data : data.toString('utf-8');
-        await this.handleMessage(client, text);
+        try {
+          const text = typeof data === 'string' ? data : data.toString('utf-8');
+          await this.handleMessage(client, text);
+        } catch (err) {
+          console.error(
+            `[SyncServer] Message handling error: connId=${clientId} error=${err instanceof Error ? err.stack : String(err)}`
+          );
+        }
       });
 
-      ws.on('close', () => {
+      ws.on('close', (code: number, reason: Buffer) => {
+        const reasonStr = reason && reason.length > 0 ? reason.toString('utf-8') : 'none';
+        console.log(
+          `[SyncServer] WebSocket closed: connId=${clientId} docId=${client.docId || 'none'} user=${client.authenticatedUserId || 'anonymous'} code=${code} reason=${reasonStr}`
+        );
         this.handleDisconnect(client);
       });
 
-      ws.on('error', (err) => {
-        console.error(`[SyncServer] WebSocket error on client ${clientId}:`, err);
+      ws.on('error', (err: Error) => {
+        console.error(
+          `[SyncServer] WebSocket error: connId=${clientId} docId=${client.docId || 'none'} user=${client.authenticatedUserId || 'anonymous'} error=${err.stack || err.message}`
+        );
         this.handleDisconnect(client);
       });
     });

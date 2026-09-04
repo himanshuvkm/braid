@@ -206,6 +206,20 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, []);
 
+  const onContentChangeRef = useRef(onContentChange);
+  const onOperationRef = useRef(onOperation);
+  const updateMetricsRef = useRef(updateMetrics);
+  const getTokenRef = useRef(getToken);
+  const rgaRef = useRef(rga);
+
+  useEffect(() => {
+    onContentChangeRef.current = onContentChange;
+    onOperationRef.current = onOperation;
+    updateMetricsRef.current = updateMetrics;
+    getTokenRef.current = getToken;
+    rgaRef.current = rga;
+  });
+
   // SyncClient connection setup - ONLY connects if user is joined with a valid display name
   useEffect(() => {
     if (!siteId || !isJoined || !activeUserName) return;
@@ -221,17 +235,17 @@ export const Editor: React.FC<EditorProps> = ({
       userId,
       sessionId,
       token: wsToken,
-      getToken,
+      getToken: () => getTokenRef.current(),
       autoConnect: true,
       onRemoteOp: (op: Op) => {
-        client.applyRemoteOp(rga, op);
-        updateMetrics();
-        onContentChange?.(rga.getText());
+        client.applyRemoteOp(rgaRef.current, op);
+        updateMetricsRef.current();
+        onContentChangeRef.current?.(rgaRef.current.getText());
       },
       onSyncComplete: (history: readonly Op[]) => {
-        client.applyHistory(rga, history);
-        updateMetrics();
-        onContentChange?.(rga.getText());
+        client.applyHistory(rgaRef.current, history);
+        updateMetricsRef.current();
+        onContentChangeRef.current?.(rgaRef.current.getText());
       },
       onPresenceChange: (activePeers: PeerInfo[]) => {
         setPeers(activePeers.filter((p) => p.siteId !== siteId));
@@ -257,13 +271,9 @@ export const Editor: React.FC<EditorProps> = ({
     activeUserName,
     userColor,
     propServerUrl,
-    rga,
     userId,
     sessionId,
     wsToken,
-    getToken,
-    updateMetrics,
-    onContentChange,
   ]);
 
   /**
@@ -273,7 +283,8 @@ export const Editor: React.FC<EditorProps> = ({
   const applyDocumentTextDiff = useCallback(
     (newText: string) => {
       if (!siteId || !isJoined || isReadOnly) return;
-      const oldText = rga.getText();
+      const currentRga = rgaRef.current;
+      const oldText = currentRga.getText();
       if (newText === oldText) return;
 
       // 1. Calculate common prefix
@@ -303,27 +314,27 @@ export const Editor: React.FC<EditorProps> = ({
 
       // Apply deletes
       for (let i = 0; i < deleteCount; i++) {
-        const targetId = rga.idAtVisibleOffset(prefix + 1);
+        const targetId = currentRga.idAtVisibleOffset(prefix + 1);
         if (targetId) {
-          const op = rga.localDelete(targetId);
+          const op = currentRga.localDelete(targetId);
           syncClientRef.current?.sendOperation(op);
-          onOperation?.(op);
+          onOperationRef.current?.(op);
         }
       }
 
       // Apply inserts
       for (let i = 0; i < insertText.length; i++) {
         const char = insertText[i];
-        const afterId = prefix + i === 0 ? null : rga.idAtVisibleOffset(prefix + i);
-        const op = rga.localInsert(afterId, char);
+        const afterId = prefix + i === 0 ? null : currentRga.idAtVisibleOffset(prefix + i);
+        const op = currentRga.localInsert(afterId, char);
         syncClientRef.current?.sendOperation(op);
-        onOperation?.(op);
+        onOperationRef.current?.(op);
       }
 
-      updateMetrics();
-      onContentChange?.(newText);
+      updateMetricsRef.current();
+      onContentChangeRef.current?.(newText);
     },
-    [siteId, isJoined, isReadOnly, rga, onOperation, onContentChange, updateMetrics]
+    [siteId, isJoined, isReadOnly]
   );
 
   // Handle block content change

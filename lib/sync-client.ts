@@ -298,6 +298,9 @@ export class CausalBuffer {
  * causal buffering of remote ops, and peer presence.
  */
 export class SyncClient {
+  public readonly clientId: string;
+  private connectionSeq = 0;
+  private currentConnectionId: string = '';
   private socket: WebSocketLike | null = null;
   private readonly config: Required<
     Pick<
@@ -324,6 +327,7 @@ export class SyncClient {
   private currentToken: string | undefined;
 
   constructor(config: SyncClientConfig) {
+    this.clientId = `client-${Math.random().toString(36).substring(2, 9)}`;
     this.currentToken = config.token;
     this.config = {
       name: `User-${config.siteId.slice(0, 4)}`,
@@ -402,6 +406,10 @@ export class SyncClient {
     return this.joinedPromise || Promise.resolve();
   }
 
+  get connectionId(): string {
+    return this.currentConnectionId;
+  }
+
   async connect(): Promise<void> {
     if (this.status === 'connected' || this.status === 'connecting') return;
 
@@ -447,6 +455,22 @@ export class SyncClient {
       return;
     }
 
+    // Terminate any stale socket before opening a new one to prevent overlapping connections
+    if (this.socket) {
+      try {
+        const stale = this.socket;
+        this.socket = null;
+        stale.onopen = null;
+        stale.onmessage = null;
+        stale.onclose = null;
+        stale.onerror = null;
+        stale.close(1000, 'Reconnecting');
+      } catch {}
+    }
+
+    const connId = `${this.clientId}-conn-${++this.connectionSeq}`;
+    this.currentConnectionId = connId;
+
     try {
       let targetUrl = this.config.serverUrl;
       const effectiveToken = this.currentToken || this.config.token;
@@ -459,34 +483,38 @@ export class SyncClient {
       }
 
       const safeLogUrl = targetUrl.replace(/([?&](sessionId|token)=)[^&]+/i, '$1[REDACTED]');
-      console.log(`[SyncClient] connecting ${safeLogUrl}`);
+      console.log(`[SyncClient] connecting (${this.clientId}:${connId}) ${safeLogUrl}`);
 
-      this.socket = new WSClass(targetUrl);
+      const ws = new WSClass(targetUrl);
+      this.socket = ws;
 
-      this.socket.onopen = () => {
-        console.log('[SyncClient] websocket opened');
+      ws.onopen = () => {
+        if (this.socket !== ws) return;
+        console.log(`[SyncClient] websocket opened (${this.clientId}:${connId})`);
         this.setStatus('connected');
         this.currentReconnectDelay = this.config.reconnectIntervalMs;
         this.sendJoin();
         this.flushOutgoingQueue();
       };
 
-      this.socket.onmessage = (event: { data: unknown }) => {
+      ws.onmessage = (event: { data: unknown }) => {
+        if (this.socket !== ws) return;
         const raw = typeof event.data === 'string' ? event.data : (event.data as Buffer)?.toString?.('utf-8');
         if (!raw) return;
         try {
           const message: SyncMessage = JSON.parse(raw);
           this.handleServerMessage(message);
         } catch (err) {
-          console.error('[SyncClient] Failed to parse message from server:', err);
+          console.error(`[SyncClient] Failed to parse message from server (${this.clientId}:${connId}):`, err);
         }
       };
 
-      this.socket.onclose = (event?: { code?: number; reason?: string }) => {
+      ws.onclose = (event?: { code?: number; reason?: string }) => {
+        if (this.socket !== ws) return;
         this.socket = null;
         this.peers.clear();
         const code = event?.code ?? 1006;
-        console.log(`[SyncClient] websocket closed code=${code} reason=${event?.reason || 'none'}`);
+        console.log(`[SyncClient] websocket closed (${this.clientId}:${connId}) code=${code} reason=${event?.reason || 'none'}`);
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
           this.setStatus('offline');
@@ -500,11 +528,12 @@ export class SyncClient {
         }
       };
 
-      this.socket.onerror = () => {
-        console.warn('[SyncClient] WebSocket encountered an error');
+      ws.onerror = () => {
+        if (this.socket !== ws) return;
+        console.warn(`[SyncClient] WebSocket encountered an error (${this.clientId}:${connId})`);
       };
     } catch (err) {
-      console.error('[SyncClient] Failed to open WebSocket connection:', err);
+      console.error(`[SyncClient] Failed to open WebSocket connection (${this.clientId}:${connId}):`, err);
       this.peers.clear();
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         this.setStatus('offline');
@@ -773,7 +802,13 @@ export class SyncClient {
     }
     if (this.socket) {
       try {
-        this.socket.close();
+        const ws = this.socket;
+        this.socket = null;
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.close(1000, 'Client disconnected');
       } catch {}
       this.socket = null;
     }
