@@ -1,8 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '../../../lib/auth';
+import { cookies } from 'next/headers';
+import { getCurrentUser, SESSION_COOKIE_NAME } from '../../../lib/auth';
 import { getProject, getProjectRole } from '../../../lib/db';
+import { createWebSocketToken } from '../../../lib/ws-token';
 import { ProjectEditor } from '../../../components/project/ProjectEditor';
 import { Icons } from '../../../components/ui/icons';
 import { Button } from '../../../components/ui/button';
@@ -66,6 +68,20 @@ export default async function ProjectPage(props: PageProps) {
     );
   }
 
-  // 4. Render ProjectEditor with persisted snapshot & role
-  return <ProjectEditor project={project} user={user} role={role} />;
+  // 4. Generate initial short-lived WebSocket token for instant zero-waterfall handshake
+  let initialWsToken: string | undefined;
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
+    if (sessionCookie?.value) {
+      initialWsToken = createWebSocketToken({
+        userId: user.id,
+        sessionId: sessionCookie.value,
+        expiresInSeconds: 300,
+      });
+    }
+  } catch {}
+
+  // 5. Render ProjectEditor with persisted snapshot, role, and token
+  return <ProjectEditor project={project} user={user} role={role} initialWsToken={initialWsToken} />;
 }

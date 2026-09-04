@@ -86,8 +86,10 @@ In your Render service dashboard under **Environment Variables**, add:
 | `NODE_ENV` | `production` | Enforces production security, origin validation, and error masking |
 | `DATABASE_URL` | `postgresql://braid_user:secure_password@host:5432/braid?sslmode=require` | Pooled connection to PostgreSQL for session and project authorization |
 | `ALLOWED_ORIGINS` | `https://<web-app-domain>` | Restricts WebSocket upgrades to your web app's origin (e.g. `https://braid.vercel.app` or `https://app.example.com`) |
+| `AUTH_SECRET` | *(Optional)* | Cryptographic HMAC secret for WebSocket tokens. If omitted, deterministically derived from shared `DATABASE_URL` |
 
 > [!IMPORTANT]
+> * **Cross-Origin WebSocket Authentication**: The web app on Vercel automatically issues short-lived, cryptographically signed tokens (`HMAC-SHA256`) to authenticated users, which are presented to the Render sync server during the WebSocket handshake (`?token=...`). If `AUTH_SECRET` is not set, both services automatically derive the identical HMAC key from the shared `DATABASE_URL`.
 > * **Port Handling**: Render automatically injects the `PORT` environment variable. SyncServer dynamically listens on `0.0.0.0:$PORT` to bind to all interfaces. Do NOT hardcode or manually set `PORT=4444` in Render.
 > * **Separation of Variables**: Do NOT define `NEXT_PUBLIC_WS_URL` in Render. That variable is evaluated at client build time and belongs exclusively to the Next.js/Vercel deployment.
 

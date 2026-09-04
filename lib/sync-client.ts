@@ -62,6 +62,8 @@ export interface SyncClientConfig {
   color?: string;
   userId?: string;
   sessionId?: string;
+  token?: string;
+  getToken?: () => Promise<string | null>;
   autoConnect?: boolean;
   reconnectIntervalMs?: number;
   maxReconnectIntervalMs?: number;
@@ -319,8 +321,10 @@ export class SyncClient {
   private intentionallyClosed = false;
   private joinedPromise: Promise<void> | null = null;
   private resolveJoined: (() => void) | null = null;
+  private currentToken: string | undefined;
 
   constructor(config: SyncClientConfig) {
+    this.currentToken = config.token;
     this.config = {
       name: `User-${config.siteId.slice(0, 4)}`,
       color: '#6366f1',
@@ -398,7 +402,7 @@ export class SyncClient {
     return this.joinedPromise || Promise.resolve();
   }
 
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.status === 'connected' || this.status === 'connecting') return;
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -410,6 +414,28 @@ export class SyncClient {
     this.intentionallyClosed = false;
     this.resetJoinedPromise();
     this.setStatus('connecting');
+
+    // If a token provider is supplied and no active token, retrieve fresh token
+    if (this.config.getToken && !this.currentToken) {
+      try {
+        const token = await this.config.getToken();
+        if (token) {
+          this.currentToken = token;
+        } else {
+          console.warn('[SyncClient] Auth token acquisition returned null/unauthorized');
+          this.intentionallyClosed = true;
+          this.setStatus('error');
+          this.config.onError?.({ message: 'Authentication required: session expired', code: 401 });
+          return;
+        }
+      } catch (err) {
+        console.error('[SyncClient] Failed to acquire authentication token:', err);
+        this.intentionallyClosed = true;
+        this.setStatus('error');
+        this.config.onError?.({ message: 'Authentication error', code: 401 });
+        return;
+      }
+    }
 
     const WSClass =
       this.config.WebSocketClass ||
@@ -423,7 +449,11 @@ export class SyncClient {
 
     try {
       let targetUrl = this.config.serverUrl;
-      if (this.config.sessionId && !targetUrl.includes('sessionId=') && !targetUrl.includes('token=')) {
+      const effectiveToken = this.currentToken || this.config.token;
+      if (effectiveToken && !targetUrl.includes('token=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}token=${encodeURIComponent(effectiveToken)}`;
+      } else if (this.config.sessionId && !targetUrl.includes('sessionId=') && !targetUrl.includes('token=')) {
         const separator = targetUrl.includes('?') ? '&' : '?';
         targetUrl = `${targetUrl}${separator}sessionId=${encodeURIComponent(this.config.sessionId)}`;
       }
@@ -509,10 +539,14 @@ export class SyncClient {
       this.config.maxReconnectIntervalMs
     );
 
-    this.reconnectTimeout = setTimeout(() => {
+    this.reconnectTimeout = setTimeout(async () => {
       this.reconnectTimeout = null;
       if (!this.intentionallyClosed && (this.status === 'reconnecting' || this.status === 'disconnected')) {
-        this.connect();
+        // Invalidate cached token so reconnect fetches a fresh short-lived token via getToken()
+        if (this.config.getToken) {
+          this.currentToken = undefined;
+        }
+        await this.connect();
       }
     }, delay);
   }
@@ -526,6 +560,7 @@ export class SyncClient {
       color: this.config.color,
       userId: this.config.userId,
       sessionId: this.config.sessionId,
+      token: this.currentToken || this.config.token,
     };
     this.sendRaw(msg);
   }
@@ -701,6 +736,12 @@ export class SyncClient {
             this.reconnectTimeout = null;
           }
           this.setStatus('error');
+          if (this.socket) {
+            try {
+              this.socket.close();
+            } catch {}
+            this.socket = null;
+          }
         } else if (msg.code === 403) {
           console.warn('[SyncClient] project authorization rejected (code: 403)');
           this.intentionallyClosed = true;
@@ -709,6 +750,12 @@ export class SyncClient {
             this.reconnectTimeout = null;
           }
           this.setStatus('error');
+          if (this.socket) {
+            try {
+              this.socket.close();
+            } catch {}
+            this.socket = null;
+          }
         }
         break;
     }

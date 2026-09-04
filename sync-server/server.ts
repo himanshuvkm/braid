@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import { RGA, type Op } from '../crdt-engine/src/index';
 import { getProject, getProjectRole, getSession, updateProjectContent, type ProjectRole } from '../lib/db';
 import { SESSION_COOKIE_NAME } from '../lib/auth';
+import { verifyWebSocketToken } from '../lib/ws-token';
 
 export interface PeerInfo {
   siteId: string;
@@ -13,7 +14,7 @@ export interface PeerInfo {
 }
 
 export type SyncMessage =
-  | { type: 'join'; docId: string; siteId: string; name?: string; color?: string; userId?: string; sessionId?: string }
+  | { type: 'join'; docId: string; siteId: string; name?: string; color?: string; userId?: string; sessionId?: string; token?: string }
   | { type: 'leave'; docId: string; siteId: string }
   | { type: 'op'; docId: string; siteId: string; op: Op }
   | { type: 'sync'; docId: string; history: Op[]; peers: PeerInfo[] }
@@ -80,26 +81,105 @@ export function textToBaselineOps(text: string, baselineSiteId: string = 'init')
   return ops;
 }
 
+export interface ExtractedCredentials {
+  token?: string;
+  sessionId?: string;
+}
+
 /**
- * Parse session ID from HTTP Cookie header or URL query string
+ * Extract auth credentials (token and/or session ID) from HTTP Cookie header or URL query string
  */
-export function extractSessionId(cookieHeader?: string, urlString?: string): string | undefined {
+export function extractAuthCredentials(cookieHeader?: string, urlString?: string): ExtractedCredentials {
+  let token: string | undefined;
+  let sessionId: string | undefined;
+
   if (cookieHeader) {
     const match = cookieHeader.match(new RegExp(`(?:^|; )${SESSION_COOKIE_NAME}=([^;]*)`));
     if (match && match[1]) {
-      return decodeURIComponent(match[1]);
+      sessionId = decodeURIComponent(match[1]);
     }
   }
 
   if (urlString) {
     try {
       const url = new URL(urlString, 'http://localhost');
-      const param = url.searchParams.get('sessionId') || url.searchParams.get('token');
-      if (param) return param;
+      const tokenParam = url.searchParams.get('token');
+      const sessionParam = url.searchParams.get('sessionId');
+      if (tokenParam) token = tokenParam;
+      if (sessionParam) sessionId = sessionParam;
     } catch {}
   }
 
-  return undefined;
+  return { token, sessionId };
+}
+
+/**
+ * Parse session ID from HTTP Cookie header or URL query string (retained for backward compatibility)
+ */
+export function extractSessionId(cookieHeader?: string, urlString?: string): string | undefined {
+  const creds = extractAuthCredentials(cookieHeader, urlString);
+  return creds.sessionId || creds.token;
+}
+
+/**
+ * Validate either a cryptographically signed WebSocket token or database session ID.
+ * Returns verified user identity if valid, or null.
+ */
+export async function authenticateCredentials(credentials: {
+  token?: string;
+  sessionId?: string;
+}): Promise<{ userId: string; sessionId: string; userName: string } | null> {
+  const { token, sessionId } = credentials;
+
+  // 1. If signed token provided, cryptographically verify and ensure underlying session exists in DB
+  if (token) {
+    const verified = verifyWebSocketToken(token);
+    if (verified.valid && verified.payload) {
+      try {
+        const session = await getSession(verified.payload.sessionId);
+        if (session && session.user.id === verified.payload.userId) {
+          return {
+            userId: session.user.id,
+            sessionId: session.id,
+            userName: session.user.name,
+          };
+        }
+      } catch {}
+    }
+  }
+
+  // 2. If raw sessionId provided (same-origin cookies or legacy tests)
+  if (sessionId) {
+    // If sessionId is formatted like a signed token (payload.signature)
+    if (sessionId.includes('.')) {
+      const verified = verifyWebSocketToken(sessionId);
+      if (verified.valid && verified.payload) {
+        try {
+          const session = await getSession(verified.payload.sessionId);
+          if (session && session.user.id === verified.payload.userId) {
+            return {
+              userId: session.user.id,
+              sessionId: session.id,
+              userName: session.user.name,
+            };
+          }
+        } catch {}
+      }
+    }
+
+    try {
+      const session = await getSession(sessionId);
+      if (session) {
+        return {
+          userId: session.user.id,
+          sessionId: session.id,
+          userName: session.user.name,
+        };
+      }
+    } catch {}
+  }
+
+  return null;
 }
 
 /**
@@ -242,6 +322,7 @@ export class SyncServer {
           name: msg.name,
           color: msg.color,
           sessionId: msg.sessionId,
+          token: msg.token,
           userId: msg.userId,
         });
         break;
@@ -285,21 +366,20 @@ export class SyncServer {
   async joinRoom(
     docId: string,
     client: ClientConnection,
-    info?: { siteId?: string; name?: string; color?: string; sessionId?: string; userId?: string }
+    info?: { siteId?: string; name?: string; color?: string; sessionId?: string; token?: string; userId?: string }
   ): Promise<boolean> {
     const siteId = info?.siteId || client.siteId || 'anonymous';
     const sessionId = info?.sessionId || client.sessionId;
+    const token = info?.token;
 
-    // Resolve authenticated identity from session if not yet resolved on connection
-    if (!client.authenticatedUserId && sessionId) {
-      try {
-        const session = await getSession(sessionId);
-        if (session) {
-          client.authenticatedUserId = session.user.id;
-          client.sessionId = session.id;
-          if (!client.name) client.name = session.user.name;
-        }
-      } catch {}
+    // Resolve authenticated identity from token or session if not yet resolved on connection
+    if (!client.authenticatedUserId && (token || sessionId)) {
+      const auth = await authenticateCredentials({ token, sessionId });
+      if (auth) {
+        client.authenticatedUserId = auth.userId;
+        client.sessionId = auth.sessionId;
+        if (!client.name) client.name = auth.userName;
+      }
     }
 
     const authenticatedUserId = client.authenticatedUserId;
@@ -309,7 +389,7 @@ export class SyncServer {
       docId,
       authenticatedUserId,
       userId: authenticatedUserId || info?.userId,
-      sessionId,
+      sessionId: client.sessionId || sessionId,
       siteId,
     });
 
@@ -633,16 +713,12 @@ export class SyncServer {
       let userName: string | undefined;
 
       if (req) {
-        const extracted = extractSessionId(req.headers.cookie, req.url);
-        if (extracted) {
-          sessionId = extracted;
-          try {
-            const session = await getSession(extracted);
-            if (session) {
-              authenticatedUserId = session.user.id;
-              userName = session.user.name;
-            }
-          } catch {}
+        const creds = extractAuthCredentials(req.headers.cookie, req.url);
+        const auth = await authenticateCredentials(creds);
+        if (auth) {
+          authenticatedUserId = auth.userId;
+          sessionId = auth.sessionId;
+          userName = auth.userName;
         }
       }
 

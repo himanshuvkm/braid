@@ -16,11 +16,12 @@ interface ProjectEditorProps {
   project: Project;
   user: User;
   role: ProjectRole;
+  initialWsToken?: string;
 }
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
 
-export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
+export function ProjectEditor({ project, user, role, initialWsToken }: ProjectEditorProps) {
   const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>('saved');
   const [showShareModal, setShowShareModal] = useState(false);
@@ -254,6 +255,7 @@ export function ProjectEditor({ project, user, role }: ProjectEditorProps) {
           initialRoomName={project.name}
           userName={user.name}
           userId={user.id}
+          wsToken={initialWsToken}
           isReadOnly={role === 'VIEWER'}
           initialContent={project.content}
           onContentChange={(newContent) => {

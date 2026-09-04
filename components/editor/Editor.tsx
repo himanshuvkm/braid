@@ -29,6 +29,7 @@ interface EditorProps {
   userName?: string;
   userId?: string;
   sessionId?: string;
+  wsToken?: string;
   userColor?: string;
   initialContent?: string;
   isReadOnly?: boolean;
@@ -97,6 +98,7 @@ export const Editor: React.FC<EditorProps> = ({
   userName: explicitUserName,
   userId,
   sessionId,
+  wsToken,
   userColor: initialUserColor,
   initialContent = '',
   isReadOnly = false,
@@ -193,6 +195,17 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, [rga]);
 
+  const getToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/auth/ws-token');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data.token === 'string' ? data.token : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // SyncClient connection setup - ONLY connects if user is joined with a valid display name
   useEffect(() => {
     if (!siteId || !isJoined || !activeUserName) return;
@@ -207,6 +220,8 @@ export const Editor: React.FC<EditorProps> = ({
       color: userColor,
       userId,
       sessionId,
+      token: wsToken,
+      getToken,
       autoConnect: true,
       onRemoteOp: (op: Op) => {
         client.applyRemoteOp(rga, op);
@@ -235,7 +250,21 @@ export const Editor: React.FC<EditorProps> = ({
       client.disconnect();
       syncClientRef.current = null;
     };
-  }, [documentId, siteId, isJoined, activeUserName, userColor, propServerUrl, rga, userId, sessionId, updateMetrics, onContentChange]);
+  }, [
+    documentId,
+    siteId,
+    isJoined,
+    activeUserName,
+    userColor,
+    propServerUrl,
+    rga,
+    userId,
+    sessionId,
+    wsToken,
+    getToken,
+    updateMetrics,
+    onContentChange,
+  ]);
 
   /**
    * Applies changes from a new serialized document string to the underlying RGA CRDT.
