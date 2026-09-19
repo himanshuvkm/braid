@@ -107,7 +107,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       if (!res.ok) throw new Error(data.error || 'Failed to create document');
 
       toast('Document created');
-      router.push(`/project/${data.project.id}`);
+      router.push(`/${data.project.id}`);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Create failed', 'error');
       setIsCreating(false);
@@ -435,7 +435,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             {sortedProjects.map((project) => (
               <div
                 key={project.id}
-                onClick={() => router.push(`/project/${project.id}`)}
+                onClick={() => router.push(`/${project.id}`)}
                 className="group relative bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] rounded-2xl p-5 shadow-card hover:shadow-md transition-all flex flex-col justify-between gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-[#191919]/20"
               >
                 {/* Card Content Top */}
@@ -539,7 +539,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                   {sortedProjects.map((project) => (
                     <tr
                       key={project.id}
-                      onClick={() => router.push(`/project/${project.id}`)}
+                      onClick={() => router.push(`/${project.id}`)}
                       className="hover:bg-[#faf9f6] cursor-pointer transition-colors group"
                     >
                       {/* Name & Preview */}

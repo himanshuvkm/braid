@@ -429,19 +429,9 @@ export class SyncClient {
         const token = await this.config.getToken();
         if (token) {
           this.currentToken = token;
-        } else {
-          console.warn('[SyncClient] Auth token acquisition returned null/unauthorized');
-          this.intentionallyClosed = true;
-          this.setStatus('error');
-          this.config.onError?.({ message: 'Authentication required: session expired', code: 401 });
-          return;
         }
       } catch (err) {
-        console.error('[SyncClient] Failed to acquire authentication token:', err);
-        this.intentionallyClosed = true;
-        this.setStatus('error');
-        this.config.onError?.({ message: 'Authentication error', code: 401 });
-        return;
+        console.warn('[SyncClient] Token acquisition failed, proceeding with direct connection:', err);
       }
     }
 

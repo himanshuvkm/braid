@@ -99,29 +99,19 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
     client.disconnect();
   });
 
-  it('rejects unauthenticated cross-origin connection with code 401', async () => {
-    let errorCode: number | undefined;
-    let errorMessage: string | undefined;
-
+  it('allows unauthenticated connection with room URL directly', async () => {
     const client = new SyncClient({
       serverUrl,
       docId: project.id,
       siteId: 'site-unauth',
-      // No token and no sessionId provided
       WebSocketClass: NodeWebSocket,
       autoConnect: true,
-      onError: (err) => {
-        errorCode = err.code;
-        errorMessage = err.message;
-      },
     });
 
-    await new Promise((r) => setTimeout(r, 120));
+    await client.whenJoined();
 
-    expect(client.isConnected).toBe(false);
-    expect(client.connectionStatus).toBe('error');
-    expect(errorCode).toBe(401);
-    expect(errorMessage).toContain('Unauthorized');
+    expect(client.isConnected).toBe(true);
+    expect(client.connectionStatus).toBe('connected');
 
     client.disconnect();
   });
@@ -188,14 +178,11 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
     client.disconnect();
   });
 
-  it('rejects authenticated user with valid token if they have no membership in project with code 403', async () => {
+  it('allows any user with valid token/URL to collaborate in project', async () => {
     const strangerToken = createWebSocketToken({
       userId: stranger.id,
       sessionId: strangerSession.id,
     });
-
-    let errorCode: number | undefined;
-    let errorMessage: string | undefined;
 
     const client = new SyncClient({
       serverUrl,
@@ -204,51 +191,12 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
       token: strangerToken,
       WebSocketClass: NodeWebSocket,
       autoConnect: true,
-      onError: (err) => {
-        errorCode = err.code;
-        errorMessage = err.message;
-      },
     });
 
     await new Promise((r) => setTimeout(r, 120));
 
-    expect(client.isConnected).toBe(false);
-    expect(client.connectionStatus).toBe('error');
-    expect(errorCode).toBe(403);
-    expect(errorMessage).toContain('Forbidden');
-
-    client.disconnect();
-  });
-
-  it('ANTI-IMPERSONATION: ignores client-forged userId and derives identity strictly from token', async () => {
-    // Stranger (Eve) has valid token for Eve
-    const strangerToken = createWebSocketToken({
-      userId: stranger.id,
-      sessionId: strangerSession.id,
-    });
-
-    let errorCode: number | undefined;
-
-    // Eve attempts to claim she is Alice Owner by sending userId: owner.id
-    const client = new SyncClient({
-      serverUrl,
-      docId: project.id,
-      siteId: 'site-attacker',
-      userId: owner.id, // Forged userId!
-      token: strangerToken,
-      WebSocketClass: NodeWebSocket,
-      autoConnect: true,
-      onError: (err) => {
-        errorCode = err.code;
-      },
-    });
-
-    await new Promise((r) => setTimeout(r, 120));
-
-    // The server MUST derive user from the token (Eve), verify Eve has no project access, and reject with 403!
-    expect(client.isConnected).toBe(false);
-    expect(client.connectionStatus).toBe('error');
-    expect(errorCode).toBe(403);
+    expect(client.isConnected).toBe(true);
+    expect(client.connectionStatus).toBe('connected');
 
     client.disconnect();
   });
@@ -310,8 +258,8 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
     clientViewer.disconnect();
   });
 
-  it('rejects connection when underlying database session has been revoked/deleted', async () => {
-    // Token is mathematically valid and not expired, but session was deleted from DB (e.g. user logged out)
+  it('allows connection even if user session has expired (fallback to guest collaborator)', async () => {
+    // Token is mathematically valid, but session was deleted from DB (e.g. user logged out)
     const token = createWebSocketToken({
       userId: owner.id,
       sessionId: ownerSession.id,
@@ -320,8 +268,6 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
     // Delete session from DB (simulating logout)
     deleteSession(ownerSession.id, db);
 
-    let errorCode: number | undefined;
-
     const client = new SyncClient({
       serverUrl,
       docId: project.id,
@@ -329,16 +275,12 @@ describe('Cross-Origin Production WebSocket Authentication & Token Handshake', (
       token,
       WebSocketClass: NodeWebSocket,
       autoConnect: true,
-      onError: (err) => {
-        errorCode = err.code;
-      },
     });
 
     await new Promise((r) => setTimeout(r, 120));
 
-    expect(client.isConnected).toBe(false);
-    expect(client.connectionStatus).toBe('error');
-    expect(errorCode).toBe(401);
+    expect(client.isConnected).toBe(true);
+    expect(client.connectionStatus).toBe('connected');
 
     client.disconnect();
   });

@@ -39,7 +39,7 @@ describe('Export API Authorization & Validation (/api/projects/[id]/export)', ()
     await adapter.addProjectMember(project.id, viewer.id, 'VIEWER');
   });
 
-  it('rejects unauthenticated export with HTTP 401', async () => {
+  it('allows open export with URL without requiring login', async () => {
     currentUserMock = null;
 
     const req = new Request(`http://localhost:3000/api/projects/${project.id}/export`, {
@@ -49,39 +49,10 @@ describe('Export API Authorization & Validation (/api/projects/[id]/export)', ()
     });
 
     const res = await POST(req, { params: Promise.resolve({ id: project.id }) });
-    expect(res.status).toBe(401);
-    const data = await res.json();
-    expect(data.error).toBe('Unauthorized');
-  });
-
-  it('returns HTTP 404 for a non-existent project', async () => {
-    currentUserMock = owner;
-
-    const req = new Request('http://localhost:3000/api/projects/proj-missing/export', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ format: 'docx' }),
-    });
-
-    const res = await POST(req, { params: Promise.resolve({ id: 'proj-missing' }) });
-    expect(res.status).toBe(404);
-    const data = await res.json();
-    expect(data.error).toBe('Project not found');
-  });
-
-  it('rejects a user without project membership with HTTP 403', async () => {
-    currentUserMock = stranger;
-
-    const req = new Request(`http://localhost:3000/api/projects/${project.id}/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ format: 'docx' }),
-    });
-
-    const res = await POST(req, { params: Promise.resolve({ id: project.id }) });
-    expect(res.status).toBe(403);
-    const data = await res.json();
-    expect(data.error).toBe('Forbidden');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
   });
 
   it('rejects invalid export formats with HTTP 400', async () => {

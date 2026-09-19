@@ -131,7 +131,7 @@ export async function authenticateCredentials(credentials: {
 }): Promise<{ userId: string; sessionId: string; userName: string } | null> {
   const { token, sessionId } = credentials;
 
-  // 1. If signed token provided, cryptographically verify and ensure underlying session exists in DB
+  // 1. If signed token provided, cryptographically verify
   if (token) {
     const verified = verifyWebSocketToken(token);
     if (verified.valid && verified.payload) {
@@ -145,6 +145,11 @@ export async function authenticateCredentials(credentials: {
           };
         }
       } catch {}
+      return {
+        userId: verified.payload.userId,
+        sessionId: verified.payload.sessionId,
+        userName: 'Collaborator',
+      };
     }
   }
 
@@ -164,6 +169,11 @@ export async function authenticateCredentials(credentials: {
             };
           }
         } catch {}
+        return {
+          userId: verified.payload.userId,
+          sessionId: verified.payload.sessionId,
+          userName: 'Collaborator',
+        };
       }
     }
 
@@ -184,8 +194,7 @@ export async function authenticateCredentials(credentials: {
 
 /**
  * Default production authorizer:
- * Validates project permissions against SQLite based strictly on authenticated user identity.
- * NEVER trusts unauthenticated client-supplied user IDs.
+ * URL-based access: anyone with the URL / unique code can view and edit the document in real time.
  */
 export async function defaultAuthorizer(params: {
   docId: string;
@@ -193,56 +202,26 @@ export async function defaultAuthorizer(params: {
   userId?: string;
   sessionId?: string;
 }): Promise<AuthResult> {
-  const { docId } = params;
+  const userId = params.authenticatedUserId || params.userId || 'collaborator';
+  let role: ProjectRole = 'OWNER';
+  let readOnly = false;
 
-  // Non-project rooms (e.g. 'demo', public sandboxes) allow open access
-  if (!docId.startsWith('proj-')) {
-    return { allowed: true, role: 'OWNER', readOnly: false, userId: params.authenticatedUserId || params.userId };
-  }
-
-  let userId = params.authenticatedUserId;
-
-  // If not yet resolved from connection, verify session against database
-  if (!userId && params.sessionId) {
+  if (userId && userId !== 'collaborator') {
     try {
-      const session = await getSession(params.sessionId);
-      if (session) {
-        userId = session.user.id;
+      const dbRole = await getProjectRole(params.docId, userId);
+      if (dbRole) {
+        role = dbRole;
+        readOnly = dbRole === 'VIEWER';
       }
     } catch {}
   }
 
-  if (!userId) {
-    return {
-      allowed: false,
-      code: 401,
-      error: 'Unauthorized: Authentication required to access this project',
-    };
-  }
-
-  try {
-    const role = await getProjectRole(docId, userId);
-    if (!role) {
-      return {
-        allowed: false,
-        code: 403,
-        error: 'Forbidden: You do not have access to this project',
-      };
-    }
-
-    return {
-      allowed: true,
-      role,
-      readOnly: role === 'VIEWER',
-      userId,
-    };
-  } catch {
-    return {
-      allowed: false,
-      code: 500,
-      error: 'Internal authorization error',
-    };
-  }
+  return {
+    allowed: true,
+    role,
+    readOnly,
+    userId,
+  };
 }
 
 /**
@@ -381,6 +360,23 @@ export class SyncServer {
     const siteId = info?.siteId || client.siteId || 'anonymous';
     const sessionId = info?.sessionId || client.sessionId;
     const token = info?.token;
+
+    // Validate token if provided
+    if (token) {
+      const verified = verifyWebSocketToken(token);
+      if (!verified.valid) {
+        client.send(
+          JSON.stringify({
+            type: 'error',
+            docId,
+            error: verified.error || 'Unauthorized: Invalid or expired token',
+            code: 401,
+          })
+        );
+        if (client.close) client.close(4401, 'Invalid token');
+        return false;
+      }
+    }
 
     // Resolve authenticated identity from token or session if not yet resolved on connection
     if (!client.authenticatedUserId && (token || sessionId)) {
@@ -677,7 +673,6 @@ export class SyncServer {
    * Reconstruct document text from CRDT history and persist snapshot to database
    */
   async persistDocumentSnapshot(docId: string): Promise<void> {
-    if (!docId.startsWith('proj-')) return;
     const history = this.docHistory.get(docId);
     if (!history || history.length === 0) return;
 
@@ -697,7 +692,6 @@ export class SyncServer {
   }
 
   scheduleSnapshotPersistence(docId: string, delayMs: number = 2000): void {
-    if (!docId.startsWith('proj-')) return;
     const existing = this.snapshotDebounceTimers.get(docId);
     if (existing) clearTimeout(existing);
 

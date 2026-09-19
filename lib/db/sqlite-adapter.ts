@@ -351,6 +351,14 @@ export class SqliteAdapter implements DatabaseAdapter {
 
   updateProjectContent(id: string, content: string): boolean {
     const now = Date.now();
+    const existing = this.getProject(id);
+    if (!existing) {
+      const stmt = this.db.prepare(
+        'INSERT OR REPLACE INTO projects (id, owner_id, name, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      stmt.run(id, 'user-himanshu', id, content, now, now);
+      return true;
+    }
     const stmt = this.db.prepare('UPDATE projects SET content = ?, updated_at = ? WHERE id = ?');
     stmt.run(content, now, id);
     return true;

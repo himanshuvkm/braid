@@ -8,19 +8,21 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-    if (!sessionCookie?.value) {
-      return NextResponse.json({ error: 'Unauthorized: No session cookie' }, { status: 401 });
-    }
+    let userId: string = 'anon-' + Math.random().toString(36).substring(2, 9);
+    let sessionId: string = 'guest-session';
 
-    const session = await getSession(sessionCookie.value);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired session' }, { status: 401 });
+    if (sessionCookie?.value) {
+      const session = await getSession(sessionCookie.value);
+      if (session) {
+        userId = session.user.id;
+        sessionId = session.id;
+      }
     }
 
     const expiresInSeconds = 300; // 5 minutes
     const token = createWebSocketToken({
-      userId: session.user.id,
-      sessionId: session.id,
+      userId,
+      sessionId,
       expiresInSeconds,
     });
 

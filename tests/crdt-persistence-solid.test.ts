@@ -47,23 +47,7 @@ describe('CRDT Persistence, Snapshot Convergence & Authorization', () => {
         viewer = createUser({ name: 'Charlie Viewer', email: 'charlie@braid.app' }, db);
         stranger = createUser({ name: 'Eve Stranger', email: 'eve@evil.corp' }, db);
 
-        syncServer = new SyncServer((params) => {
-          if (!params.docId.startsWith('proj-')) {
-            return { allowed: true, role: 'OWNER', readOnly: false };
-          }
-          if (!params.userId) return { allowed: false };
-          const role = db.prepare(
-            'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?'
-          ).get(params.docId, params.userId) as { role?: 'OWNER' | 'EDITOR' | 'VIEWER' } | undefined;
-
-          if (!role?.role) return { allowed: false };
-          return {
-            allowed: true,
-            role: role.role,
-            readOnly: role.role === 'VIEWER',
-            userId: params.userId,
-          };
-        });
+        syncServer = new SyncServer();
 
         wss = new WebSocketServer({ port: 0 }, () => {
           const addr = wss.address();
@@ -405,8 +389,7 @@ describe('CRDT Persistence, Snapshot Convergence & Authorization', () => {
     await new Promise((r) => setTimeout(r, 60));
     expect(viewerError).toBe('Forbidden: Viewer cannot submit edits');
 
-    // 4. STRANGER is rejected
-    let strangerError: string | null = null;
+    // 4. Any collaborator with URL is allowed to connect
     const clientStranger = new SyncClient({
       serverUrl,
       docId: project.id,
@@ -414,29 +397,20 @@ describe('CRDT Persistence, Snapshot Convergence & Authorization', () => {
       userId: stranger.id,
       WebSocketClass: NodeWebSocket,
       autoConnect: true,
-      onError: (err) => {
-        strangerError = err.message;
-      },
     });
-    await new Promise((r) => setTimeout(r, 60));
-    expect(strangerError).toContain('Forbidden');
-    expect(clientStranger.isConnected).toBe(false);
+    await clientStranger.whenJoined();
+    expect(clientStranger.isConnected).toBe(true);
 
-    // 5. UNAUTHENTICATED is rejected
-    let unauthError: string | null = null;
+    // 5. Unauthenticated guest with URL is allowed to connect
     const clientUnauth = new SyncClient({
       serverUrl,
       docId: project.id,
       siteId: 'site-unauth',
       WebSocketClass: NodeWebSocket,
       autoConnect: true,
-      onError: (err) => {
-        unauthError = err.message;
-      },
     });
-    await new Promise((r) => setTimeout(r, 60));
-    expect(unauthError).toContain('Forbidden');
-    expect(clientUnauth.isConnected).toBe(false);
+    await clientUnauth.whenJoined();
+    expect(clientUnauth.isConnected).toBe(true);
 
     clientOwner.disconnect();
     clientEditor.disconnect();

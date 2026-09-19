@@ -2,16 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Braid requires two services in development:
+1. **Next.js Web Application** (runs on `http://localhost:3000`)
+2. **WebSocket Sync Server** (runs on `ws://localhost:4444`)
 
+### Run both services:
+
+**Terminal 1 (Next.js):**
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+
+**Terminal 2 (Sync Server):**
+```bash
+npm run sync-server
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

@@ -293,6 +293,16 @@ export class PostgresAdapter implements DatabaseAdapter {
   async updateProjectContent(id: string, content: string): Promise<boolean> {
     await this.init();
     const now = Date.now();
+    const existing = await this.getProject(id);
+    if (!existing) {
+      const userRes = await this.pool.query('SELECT id FROM users LIMIT 1');
+      const ownerId = userRes.rows[0]?.id || 'user-himanshu';
+      await this.pool.query(
+        'INSERT INTO projects (id, owner_id, name, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, updated_at = EXCLUDED.updated_at',
+        [id, ownerId, id, content, now, now]
+      );
+      return true;
+    }
     await this.pool.query(
       'UPDATE projects SET content = $1, updated_at = $2 WHERE id = $3',
       [content, now, id]

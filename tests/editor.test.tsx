@@ -70,13 +70,12 @@ describe('Direct Room URL Identity Flow and Join Gate', () => {
 });
 
 describe('Landing Page and Room Flows', () => {
-  it('renders the Landing Page with Create and Join tabs', () => {
+  it('renders the minimal dark Home Page with instant room creation and name prompt', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
-    expect(html).toContain('Create a Room');
-    expect(html).toContain('Join a Room');
-    expect(html).toContain('Room Name');
-    expect(html).toContain('Your Name');
+    expect(html).toContain('Your name...');
+    expect(html).toContain('Start Writing');
+    expect(html).toContain('Have a room code? Join room');
   });
 
   it('room-storage utility generates valid room IDs and manages storage', () => {

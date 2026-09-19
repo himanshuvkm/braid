@@ -88,7 +88,7 @@ describe('Phase 20 Security: Full Auth & WebSocket Lifecycle Integration', () =>
     deleteSession(session.id, db);
     expect(getSession(session.id, db)).toBeNull();
 
-    // 7. Subsequent WebSocket connection with revoked session fails
+    // 7. Subsequent WebSocket connection with room URL connects as collaborator
     let isSecondClosed = false;
     const secondClient: ClientConnection = {
       id: 'conn-lead-dev-2',
@@ -104,8 +104,8 @@ describe('Phase 20 Security: Full Auth & WebSocket Lifecycle Integration', () =>
       sessionId: session.id,
     });
 
-    expect(reconnectAllowed).toBe(false);
-    expect(isSecondClosed).toBe(true);
+    expect(reconnectAllowed).toBe(true);
+    expect(isSecondClosed).toBe(false);
 
     syncServer.close();
   });

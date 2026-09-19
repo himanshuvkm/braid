@@ -8,99 +8,51 @@ export interface SlashMenuItem {
   type: BlockType;
   label: string;
   description: string;
-  iconName: keyof typeof Icons | 'heading1' | 'heading2' | 'heading3';
+  codeLanguage?: string;
   shortcut?: string;
-  keywords: string[];
 }
 
 export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   {
     type: 'paragraph',
-    label: 'Text',
-    description: 'Plain text with normal paragraph spacing.',
-    iconName: 'Document',
-    shortcut: 'p',
-    keywords: ['text', 'paragraph', 'plain'],
-  },
-  {
-    type: 'heading1',
-    label: 'Heading 1',
-    description: 'Large section heading.',
-    iconName: 'heading1',
-    shortcut: '#',
-    keywords: ['heading', 'h1', 'title', 'big'],
-  },
-  {
-    type: 'heading2',
-    label: 'Heading 2',
-    description: 'Medium section heading.',
-    iconName: 'heading2',
-    shortcut: '##',
-    keywords: ['heading', 'h2', 'subtitle', 'medium'],
-  },
-  {
-    type: 'heading3',
-    label: 'Heading 3',
-    description: 'Small subsection heading.',
-    iconName: 'heading3',
-    shortcut: '###',
-    keywords: ['heading', 'h3', 'subheading', 'small'],
-  },
-  {
-    type: 'todo',
-    label: 'To-do list',
-    description: 'Track tasks with an interactive checkbox.',
-    iconName: 'CheckSquare',
-    shortcut: '[]',
-    keywords: ['todo', 'task', 'check', 'checkbox', 'list'],
-  },
-  {
-    type: 'bulleted_list',
-    label: 'Bulleted list',
-    description: 'Create a simple bulleted list.',
-    iconName: 'List',
-    shortcut: '-',
-    keywords: ['bullet', 'list', 'unordered'],
-  },
-  {
-    type: 'numbered_list',
-    label: 'Numbered list',
-    description: 'Create an ordered numbered list.',
-    iconName: 'List',
-    shortcut: '1.',
-    keywords: ['number', 'list', 'ordered', 'num'],
-  },
-  {
-    type: 'quote',
-    label: 'Quote',
-    description: 'Capture a quote or key takeaway.',
-    iconName: 'Quote',
-    shortcut: '>',
-    keywords: ['quote', 'cite', 'blockquote'],
-  },
-  {
-    type: 'callout',
-    label: 'Callout',
-    description: 'Highlight tips or important notes.',
-    iconName: 'Sparkles',
-    shortcut: '> 💡',
-    keywords: ['callout', 'info', 'note', 'alert', 'warning', 'tip'],
+    label: 'Plain Text',
+    description: 'Distraction-free text writing.',
+    shortcut: 'text',
   },
   {
     type: 'code',
-    label: 'Code Block',
-    description: 'Code snippets with syntax container.',
-    iconName: 'Code',
-    shortcut: '```',
-    keywords: ['code', 'snippet', 'pre', 'typescript', 'javascript'],
+    label: 'JavaScript / TypeScript',
+    description: 'Code block for JS / TS scripts.',
+    codeLanguage: 'javascript',
+    shortcut: '```js',
   },
   {
-    type: 'divider',
-    label: 'Divider',
-    description: 'Visually divide blocks with a hairline rule.',
-    iconName: 'MoreHorizontal',
-    shortcut: '---',
-    keywords: ['divider', 'hr', 'line', 'separator'],
+    type: 'code',
+    label: 'C++ Code',
+    description: 'Code block for C++ (cpp).',
+    codeLanguage: 'cpp',
+    shortcut: '```cpp',
+  },
+  {
+    type: 'code',
+    label: 'C Code',
+    description: 'Code block for C language.',
+    codeLanguage: 'c',
+    shortcut: '```c',
+  },
+  {
+    type: 'code',
+    label: 'Java Code',
+    description: 'Code block for Java.',
+    codeLanguage: 'java',
+    shortcut: '```java',
+  },
+  {
+    type: 'code',
+    label: 'Python Code',
+    description: 'Code block for Python.',
+    codeLanguage: 'python',
+    shortcut: '```py',
   },
 ];
 
@@ -127,7 +79,7 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
     return (
       item.label.toLowerCase().includes(cleanQuery) ||
       item.description.toLowerCase().includes(cleanQuery) ||
-      item.keywords.some((k) => k.toLowerCase().includes(cleanQuery))
+      (item.codeLanguage && item.codeLanguage.toLowerCase().includes(cleanQuery))
     );
   });
 
@@ -170,10 +122,10 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
     return (
       <div
         ref={menuRef}
-        className="absolute z-50 w-64 p-3 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal text-xs text-[#64635e] text-center animate-slide-down"
+        className="absolute z-50 w-56 p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl text-xs text-neutral-500 text-center animate-slide-down"
         style={position ? { top: position.top, left: position.left } : undefined}
       >
-        No matching blocks for &quot;/{cleanQuery}&quot;
+        No matching options for &quot;/{cleanQuery}&quot;
       </div>
     );
   }
@@ -181,49 +133,39 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 w-72 max-h-84 overflow-y-auto p-1.5 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal flex flex-col gap-0.5 text-[#191919] animate-slide-down"
+      className="absolute z-50 w-64 max-h-72 overflow-y-auto p-1 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl flex flex-col gap-0.5 text-neutral-200 animate-slide-down"
       style={position ? { top: position.top, left: position.left } : undefined}
     >
-      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9a9994]">
-        Blocks & formatting
+      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        Insert Block
       </div>
 
       {filteredItems.map((item, index) => {
         const isSelected = index === selectedIndex;
         return (
           <button
-            key={item.type}
+            key={`${item.type}-${item.codeLanguage || ''}`}
             type="button"
             onClick={() => onSelect(item)}
             onMouseEnter={() => setRawIndex(index)}
-            className={`flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-all ${
-              isSelected ? 'bg-[#f4f3ef] text-[#191919]' : 'hover:bg-[#f4f3ef] text-[#191919]'
+            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-all cursor-pointer ${
+              isSelected ? 'bg-neutral-800 text-white' : 'hover:bg-neutral-800/60 text-neutral-200'
             }`}
           >
-            {/* Icon */}
-            <div className="w-8 h-8 rounded-lg bg-[#ffffff] border border-[#e8e6e1] flex items-center justify-center font-bold text-xs text-[#191919] shrink-0">
-              {item.iconName === 'heading1' ? (
-                <span className="font-bold text-xs">H1</span>
-              ) : item.iconName === 'heading2' ? (
-                <span className="font-bold text-xs">H2</span>
-              ) : item.iconName === 'heading3' ? (
-                <span className="font-bold text-xs">H3</span>
-              ) : (
-                React.createElement(Icons[item.iconName as keyof typeof Icons] || Icons.Document, { size: 14 })
-              )}
+            <div className="w-6 h-6 rounded bg-neutral-950 border border-neutral-800 flex items-center justify-center font-mono text-[11px] text-neutral-300 shrink-0">
+              {item.type === 'code' ? '</>' : 'T'}
             </div>
 
-            {/* Content */}
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#191919]">{item.label}</span>
+                <span className="text-xs font-medium text-neutral-200">{item.label}</span>
                 {item.shortcut && (
-                  <span className="text-[10px] font-mono text-[#9a9994] bg-[#f4f3ef] px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-mono text-neutral-500 bg-neutral-950 px-1 rounded">
                     {item.shortcut}
                   </span>
                 )}
               </div>
-              <span className="text-[11px] text-[#64635e] truncate">{item.description}</span>
+              <span className="text-[10px] text-neutral-500 truncate">{item.description}</span>
             </div>
           </button>
         );

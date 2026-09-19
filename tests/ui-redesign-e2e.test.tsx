@@ -37,15 +37,12 @@ describe('Complete UI/UX Redesign Verification', () => {
     updated_at: Date.now(),
   };
 
-  it('renders redesigned Landing Page with SaaS hero, value prop, and bento card', () => {
+  it('renders minimal dark instant room creator with name prompt', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
-    expect(html).toContain('Documents, together.');
-    expect(html).toContain('Conflict-Free Real-Time Documents');
-    expect(html).toContain('Create a Room');
-    expect(html).toContain('Join a Room');
-    expect(html).toContain('Product Roadmap.braid');
-    expect(html).toContain('Pure Convergence Guarantee');
+    expect(html).toContain('Your name...');
+    expect(html).toContain('Start Writing');
+    expect(html).toContain('Have a room code? Join room');
   });
 
   it('renders redesigned Login Page with tabbed auth and demo profiles', () => {
@@ -87,10 +84,10 @@ describe('Complete UI/UX Redesign Verification', () => {
     const html = renderToString(
       <ProjectEditor project={mockProject} user={mockUser} role="OWNER" />
     );
-    expect(html).toContain('Workspace');
+    expect(html).toContain('Braid');
     expect(html).toContain('System Architecture and Design');
-    expect(html).toContain('Saved to DB');
-    expect(html).toContain('Share');
+    expect(html).toContain('Saved');
+    expect(html).toContain('Share Link');
     expect(html).toContain('Himanshu');
     expect(html).toContain('CRDT nodes');
   });

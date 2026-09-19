@@ -30,43 +30,43 @@ export const DocumentOutline: React.FC<DocumentOutlineProps> = ({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors shadow-xs w-fit ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
           isOpen
-            ? 'bg-[#191919] text-[#ffffff] border-[#191919]'
-            : 'bg-[#ffffff] text-[#64635e] hover:text-[#191919] border-[#e8e6e1] hover:bg-[#f4f3ef]'
+            ? 'bg-neutral-800 text-white border-neutral-700'
+            : 'bg-neutral-900/80 text-neutral-400 hover:text-neutral-200 border-neutral-800 hover:bg-neutral-800'
         }`}
         title="Toggle Table of Contents"
       >
-        <Icons.List size={13} />
+        <Icons.List size={12} />
         <span>Outline {headings.length > 0 ? `(${headings.length})` : ''}</span>
       </button>
 
       {isOpen && (
-        <div className="w-60 p-4 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-card flex flex-col gap-2.5 mt-2 animate-slide-down">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994]">
+        <div className="w-56 p-3 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl flex flex-col gap-2 mt-2 animate-slide-down">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
             Document Outline
           </div>
 
           {headings.length === 0 ? (
-            <div className="text-xs text-[#9a9994] italic py-1">
+            <div className="text-xs text-neutral-500 italic py-1">
               Add headings to see outline.
             </div>
           ) : (
-            <div className="flex flex-col gap-1 max-h-72 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto pr-1">
               {headings.map((h) => {
                 const indent =
                   h.type === 'heading1'
-                    ? 'pl-1 font-semibold text-xs text-[#191919]'
+                    ? 'pl-1 font-semibold text-xs text-neutral-200'
                     : h.type === 'heading2'
-                    ? 'pl-3 font-medium text-xs text-[#64635e]'
-                    : 'pl-5 text-[11px] text-[#9a9994]';
+                    ? 'pl-3 font-medium text-xs text-neutral-400'
+                    : 'pl-5 text-[11px] text-neutral-500';
 
                 return (
                   <button
                     key={h.id}
                     type="button"
                     onClick={() => onScrollToBlock(h.id)}
-                    className={`text-left hover:bg-[#f4f3ef] hover:text-[#191919] py-1 px-1.5 rounded-lg transition-colors truncate ${indent}`}
+                    className={`text-left hover:bg-neutral-800 hover:text-neutral-100 py-1 px-1.5 rounded-md transition-colors truncate cursor-pointer ${indent}`}
                     title={h.content}
                   >
                     {h.content || 'Untitled section'}

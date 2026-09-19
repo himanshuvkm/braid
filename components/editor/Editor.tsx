@@ -8,18 +8,26 @@ import { SyncClient, ConnectionStatus } from '../../lib/sync-client';
 import { getWebSocketUrl } from '../../lib/ws-config';
 import type { PeerInfo } from '../../sync-server/server';
 import { getStoredUserName, setStoredUserName, getStoredRoomName, setStoredRoomName } from '../../lib/room-storage';
-import {
-  parseDocument,
-  serializeDocument,
-  type Block,
-  type BlockType,
-} from '../../lib/document-model';
-import { BlockItem } from './BlockItem';
-import { SlashMenu, type SlashMenuItem } from './SlashMenu';
-import { FormatToolbar } from './FormatToolbar';
-import { DocumentOutline } from './DocumentOutline';
 import { ExportDropdown } from './ExportDropdown';
 import { Icons } from '../ui/icons';
+
+export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
+export type EditorMode = 'text' | 'code';
+
+export const CODE_LANGUAGES = [
+  { value: 'javascript', label: 'JavaScript (JS)', ext: 'js' },
+  { value: 'typescript', label: 'TypeScript (TS)', ext: 'ts' },
+  { value: 'cpp', label: 'C++', ext: 'cpp' },
+  { value: 'c', label: 'C', ext: 'c' },
+  { value: 'java', label: 'Java', ext: 'java' },
+  { value: 'python', label: 'Python (PY)', ext: 'py' },
+  { value: 'rust', label: 'Rust', ext: 'rs' },
+  { value: 'go', label: 'Go', ext: 'go' },
+  { value: 'html', label: 'HTML', ext: 'html' },
+  { value: 'css', label: 'CSS', ext: 'css' },
+  { value: 'json', label: 'JSON', ext: 'json' },
+  { value: 'sql', label: 'SQL', ext: 'sql' },
+];
 
 interface EditorProps {
   documentId: string;
@@ -36,6 +44,8 @@ interface EditorProps {
   isReadOnly?: boolean;
   onOperation?: (op: Op) => void;
   onContentChange?: (content: string) => void;
+  saveStatus?: AutoSaveStatus;
+  onFlushSave?: () => Promise<void> | void;
 }
 
 const PASTEL_COLORS = [
@@ -105,6 +115,8 @@ export const Editor: React.FC<EditorProps> = ({
   isReadOnly = false,
   onOperation,
   onContentChange,
+  saveStatus,
+  onFlushSave,
 }) => {
   // Deterministic SSR & initial hydration value vs client post-hydration siteId
   const siteId = useSyncExternalStore(
@@ -127,6 +139,11 @@ export const Editor: React.FC<EditorProps> = ({
   const activeUserName = enteredUserName || clientStoredUserName;
   const isJoined = Boolean(activeUserName.trim());
 
+  // Editor mode: Text vs Code
+  const [mode, setMode] = useState<EditorMode>('text');
+  const [codeLanguage, setCodeLanguage] = useState<string>('javascript');
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
+
   const rga = useMemo(
     () => createRGAWithContent(siteId || '', initialContent),
     [siteId, initialContent]
@@ -139,34 +156,9 @@ export const Editor: React.FC<EditorProps> = ({
   const [tombstoneCount, setTombstoneCount] = useState<number>(0);
   const [copyFeedback, setCopyFeedback] = useState<'id' | 'link' | null>(null);
   const [showPeersDropdown, setShowPeersDropdown] = useState(false);
-  const [showOutline, setShowOutline] = useState(false);
 
-  // Focus & UI States
-  const [focusedBlockIndex, setFocusedBlockIndex] = useState<number>(0);
-  const [slashMenuState, setSlashMenuState] = useState<{
-    isOpen: boolean;
-    query: string;
-    blockIndex: number;
-    position?: { top: number; left: number };
-  }>({ isOpen: false, query: '', blockIndex: 0 });
-
-  const [formatToolbarState, setFormatToolbarState] = useState<{
-    isOpen: boolean;
-    blockIndex: number;
-    selection: { start: number; end: number };
-    position: { top: number; left: number };
-  }>({
-    isOpen: false,
-    blockIndex: 0,
-    selection: { start: 0, end: 0 },
-    position: { top: 0, left: 0 },
-  });
-
-  const draggedBlockIndexRef = useRef<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const syncClientRef = useRef<SyncClient | null>(null);
-
-  // Parse structured blocks from current RGA text
-  const docState = useMemo(() => parseDocument(text), [text]);
 
   // Derive stable roomName
   const roomName = useMemo(() => {
@@ -220,6 +212,14 @@ export const Editor: React.FC<EditorProps> = ({
     getTokenRef.current = getToken;
     rgaRef.current = rga;
   });
+
+  // Auto-resize textarea height to accommodate long content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.max(450, textareaRef.current.scrollHeight)}px`;
+    }
+  }, [text, mode]);
 
   // SyncClient connection setup - ONLY connects if user is joined with a valid display name
   useEffect(() => {
@@ -278,10 +278,10 @@ export const Editor: React.FC<EditorProps> = ({
   ]);
 
   /**
-   * Applies changes from a new serialized document string to the underlying RGA CRDT.
+   * Applies changes from new text to the underlying RGA CRDT.
    * Calculates character deltas and broadcasts ops through SyncClient.
    */
-  const applyDocumentTextDiff = useCallback(
+  const applyTextChange = useCallback(
     (newText: string) => {
       if (!siteId || !isJoined || isReadOnly) return;
       const currentRga = rgaRef.current;
@@ -338,329 +338,51 @@ export const Editor: React.FC<EditorProps> = ({
     [siteId, isJoined, isReadOnly]
   );
 
-  // Handle block content change
-  const handleBlockContentChange = (blockIndex: number, newContent: string) => {
-    // Markdown shortcut conversions (e.g. typing '# ' or '- ' at start of block)
-    if (newContent === '# ') {
-      handleConvertBlockType(blockIndex, 'heading1');
-      return;
-    }
-    if (newContent === '## ') {
-      handleConvertBlockType(blockIndex, 'heading2');
-      return;
-    }
-    if (newContent === '### ') {
-      handleConvertBlockType(blockIndex, 'heading3');
-      return;
-    }
-    if (newContent === '- ' || newContent === '* ') {
-      handleConvertBlockType(blockIndex, 'bulleted_list');
-      return;
-    }
-    if (newContent === '1. ') {
-      handleConvertBlockType(blockIndex, 'numbered_list');
-      return;
-    }
-    if (newContent === '[] ' || newContent === '[ ] ') {
-      handleConvertBlockType(blockIndex, 'todo');
-      return;
-    }
-    if (newContent === '> ') {
-      handleConvertBlockType(blockIndex, 'quote');
-      return;
-    }
-    if (newContent === '> 💡 ') {
-      handleConvertBlockType(blockIndex, 'callout');
-      return;
-    }
-    if (newContent === '```') {
-      handleConvertBlockType(blockIndex, 'code');
-      return;
-    }
-    if (newContent === '---') {
-      handleConvertBlockType(blockIndex, 'divider');
-      return;
-    }
-
-    // Check for slash menu trigger
-    if (newContent.startsWith('/')) {
-      const rect = document.getElementById(docState.blocks[blockIndex]?.id)?.getBoundingClientRect();
-      setSlashMenuState({
-        isOpen: true,
-        query: newContent,
-        blockIndex,
-        position: rect ? { top: rect.bottom + window.scrollY, left: rect.left + window.scrollX } : undefined,
-      });
-    } else if (slashMenuState.isOpen) {
-      setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
-    }
-
-    const updatedBlocks = [...docState.blocks];
-    if (updatedBlocks[blockIndex]) {
-      updatedBlocks[blockIndex] = { ...updatedBlocks[blockIndex], content: newContent };
-      applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    }
-  };
-
-  // Convert block type
-  const handleConvertBlockType = (blockIndex: number, newType: BlockType) => {
-    const updatedBlocks = [...docState.blocks];
-    if (updatedBlocks[blockIndex]) {
-      const current = updatedBlocks[blockIndex];
-      updatedBlocks[blockIndex] = {
-        ...current,
-        type: newType,
-        content: current.content.replace(/^\/[a-z0-9]*\s*/i, '').trim(),
-      };
-      applyDocumentTextDiff(serializeDocument(updatedBlocks));
-      setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
-    }
-  };
-
-  // Toggle todo checkbox
-  const handleToggleTodo = (blockIndex: number) => {
-    const updatedBlocks = [...docState.blocks];
-    if (updatedBlocks[blockIndex]) {
-      const current = updatedBlocks[blockIndex];
-      updatedBlocks[blockIndex] = {
-        ...current,
-        checked: !current.checked,
-      };
-      applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    }
-  };
-
-  // Insert block below
-  const handleInsertBelow = (blockIndex: number, type: BlockType = 'paragraph') => {
-    const updatedBlocks = [...docState.blocks];
-    const newBlock: Block = {
-      id: `block-insert-${blockIndex + 1}`,
-      type,
-      content: '',
-      rawLine: '',
-      lineIndex: blockIndex + 1,
-    };
-    updatedBlocks.splice(blockIndex + 1, 0, newBlock);
-    applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    setFocusedBlockIndex(blockIndex + 1);
-  };
-
-  // Delete block
-  const handleDeleteBlock = (blockIndex: number) => {
-    if (docState.blocks.length <= 1) {
-      // Keep at least one empty paragraph block
-      const updatedBlocks: Block[] = [
-        {
-          id: 'block-0',
-          type: 'paragraph',
-          content: '',
-          rawLine: '',
-          lineIndex: 0,
-        },
-      ];
-      applyDocumentTextDiff(serializeDocument(updatedBlocks));
-      setFocusedBlockIndex(0);
-      return;
-    }
-
-    const updatedBlocks = [...docState.blocks];
-    updatedBlocks.splice(blockIndex, 1);
-    applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    setFocusedBlockIndex(Math.max(0, blockIndex - 1));
-  };
-
-  // Duplicate block
-  const handleDuplicateBlock = (blockIndex: number) => {
-    const current = docState.blocks[blockIndex];
-    if (!current) return;
-    const updatedBlocks = [...docState.blocks];
-    const duplicated: Block = {
-      ...current,
-      id: `block-dup-${blockIndex + 1}`,
-    };
-    updatedBlocks.splice(blockIndex + 1, 0, duplicated);
-    applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    setFocusedBlockIndex(blockIndex + 1);
-  };
-
-  // Move block up / down
-  const handleMoveBlock = (fromIndex: number, toIndex: number) => {
-    if (toIndex < 0 || toIndex >= docState.blocks.length || fromIndex === toIndex) return;
-    const updatedBlocks = [...docState.blocks];
-    const [moved] = updatedBlocks.splice(fromIndex, 1);
-    updatedBlocks.splice(toIndex, 0, moved);
-    applyDocumentTextDiff(serializeDocument(updatedBlocks));
-    setFocusedBlockIndex(toIndex);
-  };
-
-  // Drag and drop reordering
-  const handleDragStart = (index: number) => {
-    draggedBlockIndexRef.current = index;
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (targetIndex: number) => {
-    const fromIndex = draggedBlockIndexRef.current;
-    if (fromIndex !== null && fromIndex !== targetIndex) {
-      handleMoveBlock(fromIndex, targetIndex);
-    }
-    draggedBlockIndexRef.current = null;
-  };
-
-  // Block Keyboard Navigation
-  const handleBlockKeyDown = (
-    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
-    blockIndex: number
-  ) => {
-    const block = docState.blocks[blockIndex];
-    const target = e.currentTarget;
-
-    // Enter key: create next block or list item
-    if (e.key === 'Enter' && !e.shiftKey) {
-      if (slashMenuState.isOpen) return; // Allow slash menu to handle Enter
-
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Tab key support for indentation in Code Mode
+    if (e.key === 'Tab') {
       e.preventDefault();
-      // If inside a list/todo and content is empty, convert back to paragraph
-      if (
-        (block.type === 'bulleted_list' || block.type === 'numbered_list' || block.type === 'todo') &&
-        !block.content.trim()
-      ) {
-        handleConvertBlockType(blockIndex, 'paragraph');
-        return;
-      }
-
-      // Preserve list type for next item
-      const nextType =
-        block.type === 'bulleted_list' || block.type === 'numbered_list' || block.type === 'todo'
-          ? block.type
-          : 'paragraph';
-      handleInsertBelow(blockIndex, nextType);
+      const target = e.currentTarget;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const val = target.value;
+      const newVal = val.substring(0, start) + '  ' + val.substring(end);
+      applyTextChange(newVal);
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
+        }
+      }, 0);
       return;
     }
 
-    // Backspace on empty block: convert to paragraph or delete
-    if (e.key === 'Backspace' && target.selectionStart === 0 && target.selectionEnd === 0) {
-      if (block.type !== 'paragraph') {
+    // Auto-indent on Enter in Code Mode
+    if (mode === 'code' && e.key === 'Enter' && !e.shiftKey) {
+      const target = e.currentTarget;
+      const start = target.selectionStart;
+      const val = target.value;
+      const curLine = val.substring(0, start).split('\n').pop() || '';
+      const match = curLine.match(/^(\s+)/);
+      if (match) {
         e.preventDefault();
-        handleConvertBlockType(blockIndex, 'paragraph');
-        return;
-      }
-      if (!block.content && docState.blocks.length > 1) {
-        e.preventDefault();
-        handleDeleteBlock(blockIndex);
+        const indent = match[1];
+        const newVal = val.substring(0, start) + '\n' + indent + val.substring(start);
+        applyTextChange(newVal);
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 1 + indent.length;
+          }
+        }, 0);
         return;
       }
     }
-
-    // Arrow Navigation between blocks
-    if (e.key === 'ArrowUp' && target.selectionStart === 0 && blockIndex > 0) {
-      e.preventDefault();
-      setFocusedBlockIndex(blockIndex - 1);
-      return;
-    }
-    if (
-      e.key === 'ArrowDown' &&
-      target.selectionStart === target.value.length &&
-      blockIndex < docState.blocks.length - 1
-    ) {
-      e.preventDefault();
-      setFocusedBlockIndex(blockIndex + 1);
-      return;
-    }
-
-    // Formatting Keyboard Shortcuts (Cmd+B, Cmd+I, Cmd+U, Cmd+K)
-    if (e.metaKey || e.ctrlKey) {
-      if (e.key === 'b' || e.key === 'B') {
-        e.preventDefault();
-        handleApplyInlineFormat(blockIndex, 'bold');
-      } else if (e.key === 'i' || e.key === 'I') {
-        e.preventDefault();
-        handleApplyInlineFormat(blockIndex, 'italic');
-      } else if (e.key === 'u' || e.key === 'U') {
-        e.preventDefault();
-        handleApplyInlineFormat(blockIndex, 'underline');
-      } else if (e.key === 'k' || e.key === 'K') {
-        e.preventDefault();
-        handleApplyInlineFormat(blockIndex, 'link');
-      }
-    }
   };
 
-  // Text selection detection for Floating FormatToolbar
-  const handleSelectText = (
-    e: React.SyntheticEvent<HTMLTextAreaElement | HTMLInputElement>,
-    blockIndex: number
-  ) => {
-    const target = e.currentTarget;
-    const start = target.selectionStart ?? 0;
-    const end = target.selectionEnd ?? 0;
-
-    if (start !== end) {
-      const rect = target.getBoundingClientRect();
-      setFormatToolbarState({
-        isOpen: true,
-        blockIndex,
-        selection: { start, end },
-        position: { top: rect.top + window.scrollY, left: rect.left + (start * 8) },
-      });
-    } else if (formatToolbarState.isOpen) {
-      setFormatToolbarState((prev) => ({ ...prev, isOpen: false }));
-    }
-  };
-
-  // Apply Inline Formatting (Wrap selected text with markdown formatting tags)
-  const handleApplyInlineFormat = (
-    blockIndex: number,
-    formatType: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'link'
-  ) => {
-    const block = docState.blocks[blockIndex];
-    if (!block) return;
-
-    const start = formatToolbarState.selection.start;
-    const end = formatToolbarState.selection.end;
-    const selected = block.content.slice(start, end) || 'text';
-
-    let formatted = selected;
-    switch (formatType) {
-      case 'bold':
-        formatted = `**${selected}**`;
-        break;
-      case 'italic':
-        formatted = `*${selected}*`;
-        break;
-      case 'underline':
-        formatted = `<u>${selected}</u>`;
-        break;
-      case 'strikethrough':
-        formatted = `~~${selected}~~`;
-        break;
-      case 'code':
-        formatted = `\`${selected}\``;
-        break;
-      case 'link':
-        formatted = `[${selected}](https://)`;
-        break;
-    }
-
-    const newContent = block.content.slice(0, start) + formatted + block.content.slice(end);
-    handleBlockContentChange(blockIndex, newContent);
-    setFormatToolbarState((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const handleSlashMenuSelect = (item: SlashMenuItem) => {
-    handleConvertBlockType(slashMenuState.blockIndex, item.type);
-    setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const handleScrollToBlock = (blockId: string) => {
-    const el = document.getElementById(blockId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const index = docState.blocks.findIndex((b) => b.id === blockId);
-      if (index !== -1) setFocusedBlockIndex(index);
+  const handleCopyCode = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     }
   };
 
@@ -674,7 +396,7 @@ export const Editor: React.FC<EditorProps> = ({
 
   const handleCopyLink = () => {
     if (typeof window !== 'undefined' && navigator.clipboard) {
-      const url = `${window.location.origin}/doc/${documentId}`;
+      const url = `${window.location.origin}/${encodeURIComponent(documentId)}`;
       navigator.clipboard.writeText(url);
       setCopyFeedback('link');
       setTimeout(() => setCopyFeedback(null), 2000);
@@ -695,27 +417,27 @@ export const Editor: React.FC<EditorProps> = ({
   // If user is not yet joined (direct room URL without prior identity), show Join Room gate
   if (!isJoined) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] w-full p-4">
-        <div className="w-full max-w-md rounded-3xl bg-[#ffffff] border border-[#e8e6e1] p-8 sm:p-10 shadow-card flex flex-col gap-6 animate-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-screen w-full p-4 bg-[#0a0a0a] text-[#ededed]">
+        <div className="w-full max-w-sm rounded-2xl bg-neutral-900/90 border border-neutral-800 p-8 shadow-2xl flex flex-col gap-6 animate-fade-in">
           <div className="flex flex-col items-center text-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs mb-1">
-              <Icons.Logo size={18} />
+            <div className="w-8 h-8 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-200 flex items-center justify-center mb-1">
+              <Icons.Logo size={16} />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-xs font-medium text-[#64635e]">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-glow" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-950 border border-neutral-800 text-[11px] font-mono text-neutral-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Collaborative Session</span>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-[#191919] mt-1">Join Room</h2>
-            <div className="flex items-center justify-center gap-1.5 text-xs text-[#64635e]">
-              <span className="font-semibold text-[#191919]">{roomName}</span>
+            <h2 className="text-lg font-semibold tracking-tight text-neutral-200 mt-1">Join Room</h2>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-neutral-500">
+              <span className="text-neutral-300 font-medium">{roomName}</span>
               <span>•</span>
-              <span className="font-mono bg-[#f4f3ef] px-2 py-0.5 rounded-full">{documentId}</span>
+              <span className="font-mono text-neutral-400">{documentId}</span>
             </div>
           </div>
 
-          <form onSubmit={handleJoinGateSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleJoinGateSubmit} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="join-gate-name" className="text-xs font-semibold text-[#191919]">
+              <label htmlFor="join-gate-name" className="text-xs text-neutral-400">
                 Your Name
               </label>
               <input
@@ -728,29 +450,29 @@ export const Editor: React.FC<EditorProps> = ({
                   if (gateError) setGateError(undefined);
                 }}
                 autoFocus
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] border text-sm text-[#191919] placeholder-[#9a9994] outline-none transition-all ${
+                className={`w-full px-3.5 py-2.5 rounded-lg bg-neutral-950 border text-sm text-neutral-200 placeholder-neutral-600 outline-none transition-colors ${
                   gateError
-                    ? 'border-red-500 focus:ring-2 focus:ring-red-400/20'
-                    : 'border-[#e8e6e1] focus:border-[#191919]'
+                    ? 'border-rose-500/80 focus:border-rose-500'
+                    : 'border-neutral-800 focus:border-neutral-600'
                 }`}
               />
               {gateError && (
-                <p className="text-xs text-red-600 font-medium">{gateError}</p>
+                <p className="text-xs text-rose-400 font-medium">{gateError}</p>
               )}
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#191919] text-[#ffffff] text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-xs flex items-center justify-center gap-1.5 mt-1"
+              className="w-full py-2.5 rounded-lg bg-neutral-200 hover:bg-white text-neutral-950 text-xs font-medium transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 mt-1 cursor-pointer"
             >
               <span>Join Document</span>
-              <Icons.ArrowRight size={13} />
+              <Icons.ArrowRight size={12} />
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-[#e8e6e1]">
-            <Link href="/" className="text-xs text-[#64635e] hover:text-[#191919] transition-colors inline-flex items-center gap-1">
-              <Icons.ArrowLeft size={12} />
+          <div className="text-center pt-2 border-t border-neutral-800">
+            <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors inline-flex items-center gap-1">
+              <Icons.ArrowLeft size={11} />
               <span>Back to Home</span>
             </Link>
           </div>
@@ -760,60 +482,112 @@ export const Editor: React.FC<EditorProps> = ({
   }
 
   const totalCollaborators = peers.length + 1;
+  const lineCount = Math.max(1, text.split('\n').length);
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl bg-[#ffffff] text-[#191919] border border-[#e8e6e1] overflow-hidden shadow-card">
-      {/* Top Workspace Navigation Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3.5 bg-[#faf9f6] border-b border-[#e8e6e1] gap-3">
+    <div className="flex flex-col min-h-screen w-full bg-[#0a0a0a] text-[#ededed] selection:bg-neutral-800 selection:text-neutral-200">
+      {/* Top Workspace Navigation Bar - Subtle & In Corners */}
+      <header className="sticky top-0 z-30 px-4 sm:px-6 h-12 flex items-center justify-between border-b border-neutral-900/80 bg-[#0a0a0a]/80 backdrop-blur-md select-none">
         {/* Left: Branding, Room Name & Room ID */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-sm font-bold tracking-tight text-[#191919] hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors shrink-0"
             title="Back to Home"
           >
-            <div className="w-5 h-5 rounded-md bg-[#191919] text-[#ffffff] flex items-center justify-center">
+            <div className="w-5 h-5 rounded bg-neutral-900 border border-neutral-800 text-neutral-200 flex items-center justify-center">
               <Icons.Logo size={11} />
             </div>
-            <span>Braid</span>
+            <span className="font-semibold text-neutral-200">Braid</span>
           </Link>
 
-          <span className="text-xs text-[#9a9994]">/</span>
+          <span className="text-neutral-700 text-xs">/</span>
 
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-xs text-[#191919] tracking-tight">{roomName}</span>
-            <div className="flex items-center gap-1 bg-[#f4f3ef] border border-[#e8e6e1] pl-2 pr-1 py-0.5 rounded-full text-[11px] font-mono text-[#64635e]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-medium text-xs sm:text-sm text-neutral-300 font-mono truncate max-w-[130px] sm:max-w-xs">
+              {roomName}
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyId}
+              className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 px-2 py-0.5 rounded text-[11px] font-mono text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer shrink-0"
+              title="Copy Room ID"
+            >
               <span>{documentId}</span>
-              <button
-                type="button"
-                onClick={handleCopyId}
-                className="p-0.5 hover:bg-[#e8e6e1] rounded-full transition-colors"
-                title="Copy Room ID"
-              >
-                {copyFeedback === 'id' ? <Icons.Check size={10} className="text-emerald-600" /> : <Icons.Copy size={10} />}
-              </button>
-            </div>
+              {copyFeedback === 'id' ? <Icons.Check size={10} className="text-emerald-400" /> : <Icons.Copy size={10} />}
+            </button>
           </div>
         </div>
 
-        {/* Right: Autosave Status, Collaborators & User Identity */}
-        <div className="flex items-center gap-3">
-          {/* Connection Status Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] text-[11px] font-medium">
+        {/* Center: Clean Mode Switcher (Text vs Code) */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg bg-neutral-900 border border-neutral-800 p-0.5 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setMode('text')}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                mode === 'text'
+                  ? 'bg-neutral-800 text-neutral-100 shadow-xs'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <span>Text</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('code')}
+              className={`px-3 py-1 rounded-md font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                mode === 'code'
+                  ? 'bg-neutral-800 text-neutral-100 shadow-xs'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <span>&lt;/&gt; Code</span>
+            </button>
+          </div>
+
+          {/* Language Selector when in Code mode */}
+          {mode === 'code' && (
+            <select
+              value={codeLanguage}
+              onChange={(e) => setCodeLanguage(e.target.value)}
+              className="bg-neutral-900 text-neutral-200 text-xs font-mono rounded-lg px-2.5 py-1 border border-neutral-800 outline-none hover:border-neutral-700 cursor-pointer transition-colors"
+            >
+              {CODE_LANGUAGES.map((lang) => (
+                <option key={lang.value} value={lang.value} className="bg-neutral-900 text-neutral-200">
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Right: Autosave Status, Collaborators & Actions */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Status Pill */}
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900/90 border border-neutral-800 text-[11px] font-mono">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                connectionStatus === 'connected'
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                saveStatus === 'saved' || (!saveStatus && connectionStatus === 'connected')
                   ? 'bg-emerald-500'
-                  : connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
+                  : saveStatus === 'saving' || connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
                   ? 'bg-amber-500 animate-pulse'
-                  : connectionStatus === 'error'
-                  ? 'bg-rose-500'
-                  : 'bg-neutral-400'
+                  : saveStatus === 'offline' || connectionStatus === 'offline'
+                  ? 'bg-amber-600'
+                  : 'bg-rose-500'
               }`}
             />
-            <span className="text-[#64635e]">
-              {connectionStatus === 'connected'
-                ? '✓ Synced'
+            <span className="text-neutral-400">
+              {saveStatus === 'saving'
+                ? 'Saving...'
+                : saveStatus === 'offline'
+                ? 'Offline'
+                : saveStatus === 'error'
+                ? 'Save failed'
+                : saveStatus === 'saved'
+                ? 'Saved'
+                : connectionStatus === 'connected'
+                ? 'Synced'
                 : connectionStatus === 'connecting'
                 ? 'Connecting...'
                 : connectionStatus === 'reconnecting'
@@ -824,51 +598,51 @@ export const Editor: React.FC<EditorProps> = ({
             </span>
           </div>
 
-          {/* Collaborator Count & Avatar Stack */}
+          {/* Collaborator Count & Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowPeersDropdown((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f3ef] border border-[#e8e6e1] hover:border-[#191919] text-[11px] font-semibold text-[#191919] transition-all"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-[11px] font-mono text-neutral-300 transition-colors cursor-pointer"
               title="View Active Collaborators"
             >
-              <Icons.Users size={12} className="text-[#64635e]" />
+              <Icons.Users size={11} className="text-neutral-400" />
               <span>{totalCollaborators}</span>
             </button>
 
             {/* Collaborators Dropdown Menu */}
             {showPeersDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-56 p-3 rounded-2xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal z-30 flex flex-col gap-2 animate-slide-down">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994] px-1">
+              <div className="absolute right-0 top-full mt-1.5 w-56 p-2 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl z-40 flex flex-col gap-1 text-xs text-neutral-200 animate-slide-down">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1">
                   Active in Room ({totalCollaborators})
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   {/* Current User */}
-                  <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#faf9f6]">
+                  <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-950/80">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e8e6e1]"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
                       style={{ backgroundColor: userColor }}
                     >
                       {activeUserName.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-semibold truncate">{activeUserName} (you)</span>
-                      <span className="text-[10px] font-mono text-[#9a9994]">{siteId}</span>
+                      <span className="text-xs font-medium truncate text-neutral-200">{activeUserName} (you)</span>
+                      <span className="text-[10px] font-mono text-neutral-500">{siteId}</span>
                     </div>
                   </div>
 
                   {/* Remote Peers */}
                   {peers.map((peer) => (
-                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[#faf9f6]">
+                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-neutral-800/60">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-[#e8e6e1]"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
                         style={{ backgroundColor: peer.color || '#F5C6B0' }}
                       >
                         {(peer.name || peer.siteId).slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold truncate">{peer.name || peer.siteId}</span>
-                        <span className="text-[10px] font-mono text-[#9a9994]">{peer.siteId}</span>
+                        <span className="text-xs font-medium truncate text-neutral-200">{peer.name || peer.siteId}</span>
+                        <span className="text-[10px] font-mono text-neutral-500">{peer.siteId}</span>
                       </div>
                     </div>
                   ))}
@@ -879,46 +653,44 @@ export const Editor: React.FC<EditorProps> = ({
 
           {/* Current User Pill */}
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-black border border-[#e8e6e1] shadow-xs"
-            style={{ backgroundColor: userColor }}
+            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-300"
             title={siteId ? `You (${siteId})` : 'You'}
           >
-            <span className="font-semibold">{activeUserName}</span>
-            <span className="text-[10px] opacity-60 font-mono">(you)</span>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: userColor }} />
+            <span className="truncate max-w-[90px]">{activeUserName}</span>
           </div>
 
-          {/* Export Dropdown for persisted project documents */}
-          {documentId.startsWith('proj-') && (
-            <ExportDropdown
-              projectId={documentId}
-              documentTitle={roomName}
-              getContent={() => rgaRef.current.getText()}
-              size="sm"
-            />
-          )}
+          {/* Export Dropdown */}
+          <ExportDropdown
+            projectId={documentId}
+            documentTitle={roomName}
+            getContent={() => rgaRef.current.getText()}
+            onFlushSave={onFlushSave}
+            size="sm"
+          />
 
-          {/* Share / Copy Link Button */}
+          {/* Share Link Button */}
           <button
             type="button"
             onClick={handleCopyLink}
-            className="text-xs font-medium px-3 py-1 rounded-full bg-[#191919] text-[#ffffff] hover:opacity-90 transition-opacity shadow-xs flex items-center gap-1"
-            title="Copy Invite Link"
+            className="text-xs font-medium px-2.5 py-1 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors flex items-center gap-1 cursor-pointer"
+            title="Share Link"
           >
-            <span>{copyFeedback === 'link' ? 'Copied!' : 'Share'}</span>
-            <Icons.Share size={10} />
+            <Icons.Share size={11} />
+            <span>{copyFeedback === 'link' ? 'Copied!' : 'Share Link'}</span>
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Offline Warning Banner */}
       {connectionStatus === 'offline' && (
-        <div className="px-6 py-2 bg-[#fef3c7] border-b border-[#fde68a] text-xs font-medium text-[#92400e] flex items-center justify-between">
+        <div className="px-6 py-2 bg-amber-950/40 border-b border-amber-900/60 text-xs font-medium text-amber-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>⚠️</span>
             <span>You are offline. Edits are saved locally and will synchronize when your network returns.</span>
           </div>
           {pendingOpsCount > 0 && (
-            <span className="font-semibold bg-[#fde68a] px-2 py-0.5 rounded-full text-[11px]">
+            <span className="font-semibold bg-amber-900/60 px-2 py-0.5 rounded text-[11px] font-mono">
               {pendingOpsCount} queued
             </span>
           )}
@@ -927,13 +699,13 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Reconnecting Banner */}
       {connectionStatus === 'reconnecting' && (
-        <div className="px-6 py-2 bg-[#eff6ff] border-b border-[#dbeafe] text-xs font-medium text-[#1e40af] flex items-center justify-between">
+        <div className="px-6 py-2 bg-blue-950/40 border-b border-blue-900/60 text-xs font-medium text-blue-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icons.Spinner size={12} className="animate-spin text-[#3b82f6]" />
+            <Icons.Spinner size={12} className="animate-spin text-blue-400" />
             <span>Reconnecting to Braid sync server...</span>
           </div>
           {pendingOpsCount > 0 && (
-            <span className="font-semibold bg-[#dbeafe] px-2 py-0.5 rounded-full text-[11px]">
+            <span className="font-semibold bg-blue-900/60 px-2 py-0.5 rounded text-[11px] font-mono">
               {pendingOpsCount} queued
             </span>
           )}
@@ -942,96 +714,88 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Error Banner */}
       {connectionStatus === 'error' && (
-        <div className="px-6 py-2 bg-[#fef2f2] border-b border-[#fecaca] text-xs font-medium text-[#991b1b] flex items-center justify-between">
+        <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-900/60 text-xs font-medium text-rose-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icons.AlertCircle size={14} className="text-[#dc2626]" />
-            <span>Sync server error: your session may have expired or project access was rejected.</span>
+            <Icons.AlertCircle size={13} className="text-rose-400" />
+            <span>Connection to Sync Server failed.</span>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (syncClientRef.current) {
+                syncClientRef.current.connect();
+              }
+            }}
+            className="px-2 py-0.5 rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs font-medium cursor-pointer transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
-      {/* Main Workspace Layout (Sidebar Outline + Notion Document Canvas) */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-[520px] relative">
-        {/* Left Table of Contents Sidebar */}
-        <aside className="p-4 border-r border-[#e8e6e1]/80 bg-[#faf9f6]/50 md:w-fit">
-          <DocumentOutline
-            blocks={docState.blocks}
-            onScrollToBlock={handleScrollToBlock}
-            isOpen={showOutline}
-            onToggle={() => setShowOutline((prev) => !prev)}
-          />
-        </aside>
+      {/* Main Full-Screen Unified Editor Canvas */}
+      <div className="flex-1 flex flex-col w-full relative">
+        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-3 border-l border-neutral-800/80 min-h-[calc(100vh-6.5rem)]">
+          {/* Active Mode Header Details */}
+          <div className="flex items-center justify-between pb-2 border-b border-neutral-900/80 select-none text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-neutral-500">Mode:</span>
+              <span className="text-xs font-semibold text-neutral-300 font-mono">
+                {mode === 'text' ? 'Plain Text Editor' : `Code Editor (${codeLanguage.toUpperCase()})`}
+              </span>
+            </div>
 
-        {/* Center Document Writing Canvas */}
-        <main className="flex-1 max-w-3xl mx-auto w-full p-6 sm:p-12 flex flex-col gap-1.5">
-          {/* Blocks List */}
-          {docState.blocks.map((block, index) => (
-            <BlockItem
-              key={block.id}
-              block={block}
-              index={index}
-              totalBlocks={docState.blocks.length}
-              isFocused={focusedBlockIndex === index}
-              onFocus={() => setFocusedBlockIndex(index)}
-              onChangeContent={(content) => handleBlockContentChange(index, content)}
-              onKeyDown={(e) => handleBlockKeyDown(e, index)}
-              onSelectText={(e) => handleSelectText(e, index)}
-              onToggleTodo={() => handleToggleTodo(index)}
-              onInsertBelow={(type) => handleInsertBelow(index, type)}
-              onDeleteBlock={() => handleDeleteBlock(index)}
-              onDuplicateBlock={() => handleDuplicateBlock(index)}
-              onMoveUp={() => handleMoveBlock(index, index - 1)}
-              onMoveDown={() => handleMoveBlock(index, index + 1)}
-              onConvertType={(type) => handleConvertBlockType(index, type)}
-              onOpenSlashMenu={(rect) => {
-                setSlashMenuState({
-                  isOpen: true,
-                  query: '',
-                  blockIndex: index,
-                  position: { top: rect.bottom + window.scrollY, left: rect.left + window.scrollX },
-                });
-              }}
-              dragHandleProps={{
-                draggable: true,
-                onDragStart: () => handleDragStart(index),
-                onDragOver: handleDragOver,
-                onDrop: () => handleDrop(index),
-              }}
+            {mode === 'code' && (
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="px-2.5 py-1 rounded bg-neutral-900 hover:bg-neutral-800 text-[11px] font-mono text-neutral-300 border border-neutral-800 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <span>{copiedCode ? '✓ Copied' : 'Copy All Code'}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Unified Editor Surface (Whole Editor for Text or Code) */}
+          <div className="flex-1 flex items-start gap-3 w-full">
+            {/* Line numbers gutter in Code mode */}
+            {mode === 'code' && (
+              <div className="flex flex-col text-right font-mono text-xs text-neutral-600 select-none py-2 pr-2 border-r border-neutral-850 min-w-[2.5rem]">
+                {Array.from({ length: lineCount }).map((_, i) => (
+                  <div key={i} className="leading-6">
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Continuous Full-Screen Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => applyTextChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                mode === 'code'
+                  ? `// Write ${codeLanguage.toUpperCase()} code here...\n// Real-time synchronization active.`
+                  : 'Write your document text here...\nEverything is synchronized in real time without conflicts.'
+              }
+              className={`flex-1 w-full bg-transparent outline-none resize-none leading-6 ${
+                mode === 'code'
+                  ? 'font-mono text-xs sm:text-sm text-neutral-100 placeholder-neutral-700 font-normal'
+                  : 'font-sans text-sm sm:text-base text-neutral-200 placeholder-neutral-700 font-normal'
+              }`}
+              spellCheck={mode === 'text'}
+              autoFocus
             />
-          ))}
-
-          {/* Empty bottom area click to add block */}
-          <div
-            className="flex-1 min-h-[120px] cursor-text py-6"
-            onClick={() => handleInsertBelow(docState.blocks.length - 1, 'paragraph')}
-          />
+          </div>
         </main>
       </div>
 
-      {/* Floating Slash Command Menu */}
-      {slashMenuState.isOpen && (
-        <SlashMenu
-          query={slashMenuState.query}
-          onSelect={handleSlashMenuSelect}
-          onClose={() => setSlashMenuState((prev) => ({ ...prev, isOpen: false }))}
-          position={slashMenuState.position}
-        />
-      )}
-
-      {/* Floating Formatting Toolbar */}
-      {formatToolbarState.isOpen && (
-        <FormatToolbar
-          position={formatToolbarState.position}
-          currentBlockType={docState.blocks[formatToolbarState.blockIndex]?.type || 'paragraph'}
-          onFormat={(formatType) => handleApplyInlineFormat(formatToolbarState.blockIndex, formatType)}
-          onConvertBlockType={(newType) => handleConvertBlockType(formatToolbarState.blockIndex, newType)}
-        />
-      )}
-
-      {/* Editor Footer / Diagnostics Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-2.5 bg-[#faf8f5] border-t border-[#e8e6e1] text-[11px] text-[#9a9994] gap-2 select-none font-mono">
-        <div className="flex items-center gap-2.5">
-          <span>{docState.blocks.length} blocks</span>
+      {/* Subtle Bottom Diagnostics Bar */}
+      <footer className="px-6 py-2 border-t border-neutral-900 text-[10px] text-neutral-600 font-mono select-none flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>{lineCount} lines</span>
           <span>•</span>
           <span>{text.length} chars</span>
           <span>•</span>
@@ -1042,9 +806,7 @@ export const Editor: React.FC<EditorProps> = ({
         <div>
           Site: {siteId || 'init'}
         </div>
-      </div>
+      </footer>
     </div>
   );
 };
-
-

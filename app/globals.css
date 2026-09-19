@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #faf9f6;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f4f3ef;
-  --color-surface-hover: #eeede8;
-  --color-border: #e8e6e1;
-  --color-border-strong: #d4d2cc;
-  --color-text: #191919;
-  --color-text-muted: #64635e;
-  --color-text-subtle: #9a9994;
-  --color-accent: #d95338;
-  --color-accent-hover: #c24229;
-  --color-accent-subtle: #fbeee9;
-  --color-danger: #dc2626;
-  --color-danger-hover: #b91c1c;
-  --color-danger-subtle: #fef2f2;
-  --color-success: #16a34a;
-  --color-success-subtle: #f0fdf4;
-  --color-warning: #d97706;
-  --color-warning-subtle: #fffbeb;
+  --color-background: #0a0a0a;
+  --color-surface: #121212;
+  --color-surface-muted: #18181b;
+  --color-surface-hover: #27272a;
+  --color-border: #262626;
+  --color-border-strong: #3f3f46;
+  --color-text: #ededed;
+  --color-text-muted: #a1a1aa;
+  --color-text-subtle: #71717a;
+  --color-accent: #e25b3e;
+  --color-accent-hover: #f06a4d;
+  --color-accent-subtle: #271916;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-subtle: #2b1212;
+  --color-success: #22c55e;
+  --color-success-subtle: #0f291e;
+  --color-warning: #f59e0b;
+  --color-warning-subtle: #2e1d05;
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -29,31 +29,31 @@
 
 @layer base {
   :root {
-    --background: #faf9f6;
-    --surface: #ffffff;
-    --surface-muted: #f4f3ef;
-    --surface-hover: #eeede8;
-    --border: #e8e6e1;
-    --border-strong: #d4d2cc;
-    --text: #191919;
-    --text-muted: #64635e;
-    --text-subtle: #9a9994;
-    --accent: #d95338;
-    --accent-hover: #c24229;
-    --accent-subtle: #fbeee9;
-    --danger: #dc2626;
-    --danger-hover: #b91c1c;
-    --danger-subtle: #fef2f2;
-    --success: #16a34a;
-    --success-subtle: #f0fdf4;
-    --warning: #d97706;
-    --warning-subtle: #fffbeb;
+    --background: #0a0a0a;
+    --surface: #121212;
+    --surface-muted: #18181b;
+    --surface-hover: #27272a;
+    --border: #262626;
+    --border-strong: #3f3f46;
+    --text: #ededed;
+    --text-muted: #a1a1aa;
+    --text-subtle: #71717a;
+    --accent: #e25b3e;
+    --accent-hover: #f06a4d;
+    --accent-subtle: #271916;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-subtle: #2b1212;
+    --success: #22c55e;
+    --success-subtle: #0f291e;
+    --warning: #f59e0b;
+    --warning-subtle: #2e1d05;
 
-    --ring: rgba(25, 25, 25, 0.2);
+    --ring: rgba(255, 255, 255, 0.15);
 
-    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-    --shadow-modal: 0 16px 36px -8px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-modal: 0 20px 40px -8px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.6);
   }
 
   * {
@@ -74,8 +74,8 @@
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -83,12 +83,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d2cc;
+  background: #27272a;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #b5b3ab;
+  background: #3f3f46;
 }
 
 /* Accessible focus ring */

@@ -9,19 +9,16 @@ interface RouteContext {
 export async function GET(request: Request, context: RouteContext) {
   try {
     const { id: projectId } = await context.params;
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const project = await getProject(projectId);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const role = await getProjectRole(projectId, user.id);
-    if (!role) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const user = await getCurrentUser();
+    let role = 'OWNER';
+    if (user) {
+      const userRole = await getProjectRole(projectId, user.id);
+      if (userRole) role = userRole;
     }
 
     return NextResponse.json({
@@ -39,21 +36,6 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { id: projectId } = await context.params;
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const project = await getProject(projectId);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const role = await getProjectRole(projectId, user.id);
-    if (!role || (role !== 'OWNER' && role !== 'EDITOR')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const body = await request.json();
     const { name } = body;
 

@@ -61,34 +61,14 @@ describe('Phase 2 Product UX & Dashboard Verification', () => {
     },
   ];
 
-  describe('Landing Page Product Experience', () => {
-    it('renders hero with strong positioning, primary/secondary CTAs, and status pill', () => {
+  describe('Minimal Dark Instant Room Creator Experience', () => {
+    it('renders clean minimal dark name prompt and instant room creation flow', () => {
       const html = renderToString(<Home />);
-      expect(html).toContain('Documents, together.');
-      expect(html).toContain('Conflict-Free Real-Time Documents');
-      expect(html).toContain('CRDT Sync Active');
-      expect(html).toContain('Create a document');
-      expect(html).toContain('Join workspace');
-    });
-
-    it('renders interactive product preview with realistic content, live cursors, and convergence guarantee', () => {
-      const html = renderToString(<Home />);
-      expect(html).toContain('Product Roadmap.braid');
-      expect(html).toContain('Q3 Architecture &amp; Real-Time Sync');
-      expect(html).toContain('Alice editing');
-      expect(html).toContain('Bob viewing');
-      expect(html).toContain('3 active peers');
-      expect(html).toContain('Saved to DB');
-      expect(html).toContain('Pure Convergence Guarantee');
-    });
-
-    it('renders 4 feature storytelling sections and final minimal CTA', () => {
-      const html = renderToString(<Home />);
-      expect(html).toContain('Real-Time Collaboration');
-      expect(html).toContain('Reliable Document Persistence');
-      expect(html).toContain('Clean Focused Editing');
-      expect(html).toContain('Workspace Organization');
-      expect(html).toContain('Start writing together.');
+      expect(html).toContain('Braid');
+      expect(html).toContain('Minimal real-time collaborative editor');
+      expect(html).toContain('Your name...');
+      expect(html).toContain('Start Writing');
+      expect(html).toContain('Have a room code? Join room');
     });
   });
 

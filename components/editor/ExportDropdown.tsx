@@ -49,7 +49,6 @@ export function ExportDropdown({
   // Focus management when menu opens
   useEffect(() => {
     if (isOpen) {
-      // Focus first item when opening
       requestAnimationFrame(() => {
         itemRefs.current[0]?.focus();
       });
@@ -93,7 +92,6 @@ export function ExportDropdown({
         handleClose(true);
         break;
       case 'Tab':
-        // Tab naturally moves out of the menu, close without returning focus to trigger
         setIsOpen(false);
         break;
     }
@@ -105,15 +103,12 @@ export function ExportDropdown({
     setExportingFormat(format);
 
     try {
-      // 1. Flush any pending autosave if applicable
       if (onFlushSave) {
         await onFlushSave();
       }
 
-      // 2. Fetch the latest live content from the editor
       const currentContent = getContent ? getContent() : undefined;
 
-      // 3. Issue server export request
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/export`, {
         method: 'POST',
         headers: {
@@ -132,23 +127,18 @@ export function ExportDropdown({
           if (data && data.error) {
             errorMsg = data.error;
           }
-        } catch {
-          // Response was not JSON
-        }
+        } catch {}
         throw new Error(errorMsg);
       }
 
-      // 4. Extract safe filename from Content-Disposition header
       const disposition = res.headers.get('Content-Disposition');
       let filename = `${documentTitle || 'Braid Document'}.${format}`;
 
       if (disposition) {
-        // Look for RFC 5987 UTF-8 encoded filename first
         const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
         if (utf8Match && utf8Match[1]) {
           filename = decodeURIComponent(utf8Match[1]);
         } else {
-          // Look for standard ASCII filename
           const asciiMatch = disposition.match(/filename="([^"]+)"/i);
           if (asciiMatch && asciiMatch[1]) {
             filename = asciiMatch[1];
@@ -156,7 +146,6 @@ export function ExportDropdown({
         }
       }
 
-      // 5. Download blob to client
       const blob = await res.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
@@ -175,7 +164,6 @@ export function ExportDropdown({
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
-      // Restore focus to export button
       triggerButtonRef.current?.focus();
     }
   };
@@ -194,32 +182,32 @@ export function ExportDropdown({
         aria-expanded={isOpen}
         aria-label="Export document"
         id="export-dropdown-trigger"
-        className={`inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg border shadow-xs select-none active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none ${
+        className={`inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg border select-none active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none cursor-pointer ${
           isSmall ? 'h-8 px-2.5 text-xs gap-1.5' : 'h-9 px-3 text-xs gap-2'
         } ${
           isOpen
-            ? 'bg-[#eeede8] text-[#191919] border-[#d4d2cc]'
-            : 'bg-[#ffffff] text-[#191919] border-[#e8e6e1] hover:border-[#d4d2cc] hover:bg-[#f4f3ef]'
+            ? 'bg-neutral-800 text-neutral-200 border-neutral-700'
+            : 'bg-neutral-900/80 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:bg-neutral-800'
         }`}
       >
         {isExporting ? (
-          <Icons.Spinner size={isSmall ? 12 : 14} className="animate-spin text-[#64635e]" />
+          <Icons.Spinner size={isSmall ? 11 : 13} className="animate-spin text-neutral-400" />
         ) : (
-          <Icons.Download size={isSmall ? 13 : 15} className="text-[#64635e]" />
+          <Icons.Download size={isSmall ? 11 : 13} className="text-neutral-400" />
         )}
 
         <span>
           {isExporting
             ? exportingFormat === 'docx'
-              ? 'Exporting Word...'
-              : 'Exporting PDF...'
+              ? 'Word...'
+              : 'PDF...'
             : 'Export'}
         </span>
 
         {!isExporting && (
           <Icons.ChevronDown
-            size={isSmall ? 11 : 12}
-            className={`text-[#9a9994] transition-transform duration-200 ${
+            size={isSmall ? 10 : 11}
+            className={`text-neutral-500 transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
             }`}
           />
@@ -232,9 +220,9 @@ export function ExportDropdown({
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="export-dropdown-trigger"
-          className="absolute right-0 top-full mt-1.5 w-60 p-1.5 rounded-xl bg-[#ffffff] border border-[#e8e6e1] shadow-modal z-50 flex flex-col gap-1 animate-slide-down focus:outline-none"
+          className="absolute right-0 top-full mt-1.5 w-56 p-1.5 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl z-50 flex flex-col gap-0.5 animate-slide-down focus:outline-none"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9a9994] px-2.5 py-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1">
             Export Document
           </div>
 
@@ -248,14 +236,14 @@ export function ExportDropdown({
             id="export-option-docx"
             onClick={() => executeExport('docx')}
             onKeyDown={(e) => handleMenuKeyDown(e, 0)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-xs font-medium text-[#191919] hover:bg-[#f4f3ef] focus:bg-[#f4f3ef] focus:outline-none transition-colors"
+            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-6 h-6 rounded-md bg-blue-50 border border-blue-200/80 flex items-center justify-center text-blue-600 shrink-0">
-              <Icons.FileText size={13} />
+            <div className="w-5 h-5 rounded bg-blue-950/60 border border-blue-800/60 flex items-center justify-center text-blue-400 shrink-0">
+              <Icons.FileText size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[#191919]">Download as Word (.docx)</span>
-              <span className="text-[10px] text-[#64635e]">Microsoft Word format</span>
+              <span className="font-semibold text-neutral-200">Word (.docx)</span>
+              <span className="text-[10px] text-neutral-500">Microsoft Word format</span>
             </div>
           </button>
 
@@ -269,14 +257,14 @@ export function ExportDropdown({
             id="export-option-pdf"
             onClick={() => executeExport('pdf')}
             onKeyDown={(e) => handleMenuKeyDown(e, 1)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-xs font-medium text-[#191919] hover:bg-[#f4f3ef] focus:bg-[#f4f3ef] focus:outline-none transition-colors"
+            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-6 h-6 rounded-md bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 shrink-0">
-              <Icons.Document size={13} />
+            <div className="w-5 h-5 rounded bg-rose-950/60 border border-rose-800/60 flex items-center justify-center text-rose-400 shrink-0">
+              <Icons.Document size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[#191919]">Download as PDF (.pdf)</span>
-              <span className="text-[10px] text-[#64635e]">Printable document format</span>
+              <span className="font-semibold text-neutral-200">PDF (.pdf)</span>
+              <span className="text-[10px] text-neutral-500">Printable document</span>
             </div>
           </button>
         </div>
