@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { generateRoomId, setStoredUserName, getStoredUserName } from '../lib/room-storage';
 import { Icons } from '../components/ui/icons';
+import { AuthCorner } from '../components/layout/AuthCorner';
+import { PreviousDocumentsSidebar } from '../components/layout/PreviousDocumentsSidebar';
 
 export default function Home() {
   const router = useRouter();
@@ -18,11 +20,9 @@ export default function Home() {
     setMounted(true);
     const stored = getStoredUserName();
     if (stored && stored.trim()) {
-      // Auto-create room immediately for returning users
-      const newRoomId = generateRoomId();
-      router.push(`/${newRoomId}`);
+      setUserName(stored);
     }
-  }, [router]);
+  }, []);
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +57,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex flex-col items-center justify-center p-4 selection:bg-neutral-800 selection:text-neutral-200">
+    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex flex-col items-center justify-center p-4 selection:bg-neutral-800 selection:text-neutral-200 relative">
+      {/* Top Left: Login Detail / Login Button */}
+      <AuthCorner />
+
+      {/* Bottom Right: Previous Documents Sidebar */}
+      <PreviousDocumentsSidebar />
+
       <div className="w-full max-w-sm flex flex-col items-center gap-8 animate-fade-in">
         {/* Minimal branding */}
         <div className="flex flex-col items-center gap-2">

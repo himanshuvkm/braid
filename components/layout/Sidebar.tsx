@@ -43,14 +43,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpenMobile && (
         <div
           role="presentation"
-          className="fixed inset-0 bg-[#191919]/30 backdrop-blur-xs z-40 md:hidden transition-opacity duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-200"
           onClick={onCloseMobile}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed md:sticky top-0 z-40 h-screen w-64 bg-[#f4f3ef] border-r border-[#e8e6e1] flex flex-col justify-between p-4 transition-transform duration-200 ease-out select-none ${
+        className={`fixed md:sticky top-0 z-40 h-screen w-64 bg-neutral-950 border-r border-neutral-800 flex flex-col justify-between p-4 transition-transform duration-200 ease-out select-none ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -62,10 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center gap-2.5 group"
               onClick={onCloseMobile}
             >
-              <div className="w-6 h-6 rounded-lg bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-6 h-6 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Icons.Logo size={13} />
               </div>
-              <span className="font-bold text-sm tracking-tight text-[#191919]">
+              <span className="font-bold text-sm tracking-tight text-neutral-200">
                 Braid Workspace
               </span>
             </Link>
@@ -76,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={onCloseMobile}
-                className="md:hidden text-[#64635e] hover:text-[#191919]"
+                className="md:hidden text-neutral-400 hover:text-neutral-100"
               >
                 <Icons.X size={16} />
               </IconButton>
@@ -91,13 +91,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onCloseMobile?.();
             }}
             disabled={isCreating}
-            className="w-full h-10 px-3 rounded-xl bg-[#ffffff] border border-[#e8e6e1] hover:border-[#d4d2cc] text-[#191919] text-xs font-semibold shadow-xs hover:shadow-sm transition-all flex items-center justify-between disabled:opacity-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20"
+            className="w-full h-10 px-3 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-200 text-xs font-semibold shadow-xs hover:shadow-sm transition-all flex items-center justify-between disabled:opacity-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <Icons.Plus size={14} className="text-[#191919]" />
+              <Icons.Plus size={14} className="text-neutral-200" />
               <span>{isCreating ? 'Creating...' : 'New document'}</span>
             </div>
-            <span className="text-[10px] text-[#9a9994] font-mono px-1 py-0.5 rounded bg-[#f4f3ef]">
+            <span className="text-[10px] text-neutral-500 font-mono px-1 py-0.5 rounded bg-neutral-950">
               ⌘N
             </span>
           </button>
@@ -110,15 +110,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('all');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
                 activeFilter === 'all'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
+                  ? 'bg-neutral-800 text-white shadow-xs font-semibold'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
               }`}
             >
               <Icons.Home size={14} className="shrink-0" />
               <span>All Documents</span>
-              <span className="ml-auto text-[11px] text-[#9a9994] font-mono">
+              <span className="ml-auto text-[11px] text-neutral-500 font-mono">
                 {counts.all}
               </span>
             </button>
@@ -129,15 +129,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('owned');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
                 activeFilter === 'owned'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
+                  ? 'bg-neutral-800 text-white shadow-xs font-semibold'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
               }`}
             >
               <Icons.Document size={14} className="shrink-0" />
               <span>My Documents</span>
-              <span className="ml-auto text-[11px] text-[#9a9994] font-mono">
+              <span className="ml-auto text-[11px] text-neutral-500 font-mono">
                 {counts.owned}
               </span>
             </button>
@@ -148,15 +148,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('shared');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
                 activeFilter === 'shared'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
+                  ? 'bg-neutral-800 text-white shadow-xs font-semibold'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
               }`}
             >
               <Icons.Users size={14} className="shrink-0" />
               <span>Shared with me</span>
-              <span className="ml-auto text-[11px] text-[#9a9994] font-mono">
+              <span className="ml-auto text-[11px] text-neutral-500 font-mono">
                 {counts.shared}
               </span>
             </button>
@@ -167,16 +167,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('recent');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
                 activeFilter === 'recent'
-                  ? 'bg-[#ffffff] text-[#191919] shadow-xs font-semibold'
-                  : 'text-[#64635e] hover:bg-[#eeede8] hover:text-[#191919]'
+                  ? 'bg-neutral-800 text-white shadow-xs font-semibold'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
               }`}
             >
               <Icons.Clock size={14} className="shrink-0" />
               <span>Recent</span>
               {counts.recent !== undefined && (
-                <span className="ml-auto text-[11px] text-[#9a9994] font-mono">
+                <span className="ml-auto text-[11px] text-neutral-500 font-mono">
                   {counts.recent}
                 </span>
               )}
@@ -185,12 +185,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User Account Bar & Sign Out */}
-        <div className="pt-3 border-t border-[#e8e6e1] flex items-center justify-between">
+        <div className="pt-3 border-t border-neutral-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <Avatar name={user.name} size="sm" />
             <div className="flex flex-col min-w-0 text-left">
-              <span className="text-xs font-semibold text-[#191919] truncate">{user.name}</span>
-              <span className="text-[10px] text-[#9a9994] truncate">{user.email}</span>
+              <span className="text-xs font-semibold text-neutral-200 truncate">{user.name}</span>
+              <span className="text-[10px] text-neutral-500 truncate">{user.email}</span>
             </div>
           </div>
 
@@ -199,7 +199,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onSignOut}
-            className="text-[#64635e] hover:text-[#191919] hover:bg-[#eeede8]"
+            className="text-neutral-400 hover:text-rose-400 hover:bg-neutral-900"
           >
             <Icons.LogOut size={14} />
           </IconButton>

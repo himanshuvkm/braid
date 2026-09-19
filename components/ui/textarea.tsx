@@ -28,7 +28,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="flex flex-col gap-1.5 w-full text-left">
         {label && (
-          <label htmlFor={id} className="text-xs font-semibold text-[#191919] select-none">
+          <label htmlFor={id} className="text-xs font-semibold text-neutral-300 select-none">
             {label}
           </label>
         )}
@@ -40,22 +40,22 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : hint ? hintId : undefined}
-          className={`w-full px-3.5 py-2.5 rounded-xl bg-[#faf9f6] text-[#191919] placeholder-[#9a9994] border transition-all duration-150 outline-none focus:bg-[#ffffff] text-sm resize-y ${
+          className={`w-full px-3.5 py-2.5 rounded-xl bg-neutral-950 text-neutral-100 placeholder-neutral-500 border transition-all duration-150 outline-none focus:bg-neutral-900/80 text-sm resize-y ${
             error
-              ? 'border-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
-              : 'border-[#e8e6e1] focus:border-[#191919] focus:ring-2 focus:ring-[#191919]/10'
-          } ${disabled ? 'opacity-50 cursor-not-allowed bg-[#f4f3ef]' : ''} ${className}`}
+              ? 'border-red-500/80 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+              : 'border-neutral-800 focus:border-neutral-600 focus:ring-2 focus:ring-neutral-700/30'
+          } ${disabled ? 'opacity-50 cursor-not-allowed bg-neutral-900' : ''} ${className}`}
           {...props}
         />
 
         {error && (
-          <p id={errorId} className="text-xs font-medium text-red-600 animate-fade-in">
+          <p id={errorId} className="text-xs font-medium text-red-400 animate-fade-in">
             {error}
           </p>
         )}
 
         {!error && hint && (
-          <p id={hintId} className="text-[11px] text-[#9a9994]">
+          <p id={hintId} className="text-[11px] text-neutral-500">
             {hint}
           </p>
         )}

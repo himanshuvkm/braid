@@ -10,6 +10,10 @@ import type { PeerInfo } from '../../sync-server/server';
 import { getStoredUserName, setStoredUserName, getStoredRoomName, setStoredRoomName } from '../../lib/room-storage';
 import { ExportDropdown } from './ExportDropdown';
 import { Icons } from '../ui/icons';
+import { Avatar } from '../ui/avatar';
+import { Modal } from '../ui/modal';
+import { Input } from '../ui/input';
+import { PreviousDocumentsSidebar } from '../layout/PreviousDocumentsSidebar';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
 export type EditorMode = 'text' | 'code';
@@ -128,16 +132,40 @@ export const Editor: React.FC<EditorProps> = ({
   // Deterministic SSR & initial hydration value vs client post-hydration userName
   const clientStoredUserName = useSyncExternalStore(
     emptySubscribe,
-    () => explicitUserName || propInitialUserName || getStoredUserName(documentId) || '',
-    () => explicitUserName || propInitialUserName || ''
+    () => {
+      const stored = getStoredUserName(documentId) || getStoredUserName();
+      if (stored && stored.trim()) return stored.trim();
+      if (explicitUserName && explicitUserName !== 'Collaborator') return explicitUserName;
+      return propInitialUserName || (explicitUserName === 'Collaborator' ? '' : explicitUserName) || '';
+    },
+    () => (explicitUserName === 'Collaborator' ? '' : explicitUserName) || propInitialUserName || ''
   );
 
   const [enteredUserName, setEnteredUserName] = useState<string>('');
   const [gateInputName, setGateInputName] = useState<string>('');
   const [gateError, setGateError] = useState<string | undefined>();
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
+  const [nameInput, setNameInput] = useState<string>('');
 
   const activeUserName = enteredUserName || clientStoredUserName;
   const isJoined = Boolean(activeUserName.trim());
+
+  const handleOpenEditName = useCallback(() => {
+    setNameInput(activeUserName === 'Collaborator' ? '' : activeUserName);
+    setIsEditingName(true);
+  }, [activeUserName]);
+
+  const handleSaveName = useCallback((newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setEnteredUserName(trimmed);
+    setStoredUserName(trimmed, documentId);
+    setStoredUserName(trimmed);
+    if (syncClientRef.current) {
+      syncClientRef.current.sendPresence({ name: trimmed });
+    }
+    setIsEditingName(false);
+  }, [documentId]);
 
   // Editor mode: Text vs Code
   const [mode, setMode] = useState<EditorMode>('text');
@@ -488,7 +516,7 @@ export const Editor: React.FC<EditorProps> = ({
     <div className="flex flex-col min-h-screen w-full bg-[#0a0a0a] text-[#ededed] selection:bg-neutral-800 selection:text-neutral-200">
       {/* Top Workspace Navigation Bar - Subtle & In Corners */}
       <header className="sticky top-0 z-30 px-4 sm:px-6 h-12 flex items-center justify-between border-b border-neutral-900/80 bg-[#0a0a0a]/80 backdrop-blur-md select-none">
-        {/* Left: Branding, Room Name & Room ID */}
+        {/* Left: Branding, Room Name & Room ID, Auth Details */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
@@ -516,6 +544,59 @@ export const Editor: React.FC<EditorProps> = ({
               <span>{documentId}</span>
               {copyFeedback === 'id' ? <Icons.Check size={10} className="text-emerald-400" /> : <Icons.Copy size={10} />}
             </button>
+          </div>
+
+          {/* Auth Login Detail & Name in Left Header Corner */}
+          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-neutral-800">
+            {userId && !userId.startsWith('guest-') ? (
+              <div className="flex items-center gap-1.5 text-xs text-neutral-300">
+                <Avatar name={activeUserName} size="xs" />
+                <span className="font-medium text-[11px] truncate max-w-[100px]">{activeUserName}</span>
+                <button
+                  type="button"
+                  onClick={handleOpenEditName}
+                  className="text-[10px] text-neutral-400 hover:text-neutral-200 ml-0.5 cursor-pointer flex items-center gap-0.5"
+                  title="Change display name"
+                >
+                  <Icons.Edit size={10} />
+                  <span>Edit</span>
+                </button>
+                <span className="text-neutral-700">|</span>
+                <Link href="/dashboard" className="text-[10px] text-neutral-400 hover:text-neutral-200">Dashboard</Link>
+                <span className="text-neutral-700">|</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.reload();
+                  }}
+                  className="text-[10px] text-neutral-400 hover:text-rose-400 cursor-pointer flex items-center gap-0.5"
+                  title="Log Out"
+                >
+                  <Icons.LogOut size={10} />
+                  <span>Log out</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleOpenEditName}
+                  className="text-[11px] font-medium px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                  title="Change your display name"
+                >
+                  <Icons.Edit size={10} />
+                  <span>Edit Name</span>
+                </button>
+                <Link
+                  href={`/login?from=/${encodeURIComponent(documentId)}`}
+                  className="text-[11px] font-medium px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white transition-all flex items-center gap-1"
+                >
+                  <Icons.LogIn size={11} />
+                  <span>Log In</span>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
@@ -618,17 +699,31 @@ export const Editor: React.FC<EditorProps> = ({
                 </div>
                 <div className="flex flex-col gap-1">
                   {/* Current User */}
-                  <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-950/80">
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
-                      style={{ backgroundColor: userColor }}
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/80">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
+                        style={{ backgroundColor: userColor }}
+                      >
+                        {activeUserName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium truncate text-neutral-200">{activeUserName} (you)</span>
+                        <span className="text-[10px] font-mono text-neutral-500">{siteId}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPeersDropdown(false);
+                        handleOpenEditName();
+                      }}
+                      className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                      title="Edit display name"
                     >
-                      {activeUserName.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium truncate text-neutral-200">{activeUserName} (you)</span>
-                      <span className="text-[10px] font-mono text-neutral-500">{siteId}</span>
-                    </div>
+                      <Icons.Edit size={11} />
+                      <span className="text-[10px]">Edit</span>
+                    </button>
                   </div>
 
                   {/* Remote Peers */}
@@ -651,14 +746,17 @@ export const Editor: React.FC<EditorProps> = ({
             )}
           </div>
 
-          {/* Current User Pill */}
-          <div
-            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-300"
-            title={siteId ? `You (${siteId})` : 'You'}
+          {/* Current User Pill with Edit Action */}
+          <button
+            type="button"
+            onClick={handleOpenEditName}
+            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-[11px] font-mono text-neutral-300 hover:text-white transition-colors cursor-pointer group"
+            title={`You (${siteId || 'init'})`}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: userColor }} />
             <span className="truncate max-w-[90px]">{activeUserName}</span>
-          </div>
+            <Icons.Edit size={10} className="text-neutral-500 group-hover:text-neutral-300 ml-0.5" />
+          </button>
 
           {/* Export Dropdown */}
           <ExportDropdown
@@ -807,6 +905,50 @@ export const Editor: React.FC<EditorProps> = ({
           Site: {siteId || 'init'}
         </div>
       </footer>
+
+      {/* Edit Display Name Modal */}
+      <Modal
+        isOpen={isEditingName}
+        onClose={() => setIsEditingName(false)}
+        title="Edit Display Name"
+        description="Choose how your name appears to other collaborators in this room."
+        maxWidth="sm"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveName(nameInput);
+          }}
+          className="flex flex-col gap-4 mt-2"
+        >
+          <Input
+            label="Your Name"
+            placeholder="e.g. Alice, Bob"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            autoFocus
+          />
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
+            <button
+              type="button"
+              onClick={() => setIsEditingName(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!nameInput.trim()}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-neutral-100 hover:bg-white text-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              Save Name
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Floating Previous Documents Sidebar in Bottom-Right Corner */}
+      <PreviousDocumentsSidebar />
     </div>
   );
 };

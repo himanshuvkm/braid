@@ -12,13 +12,13 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 
 const variantStyles: Record<IconButtonVariant, string> = {
   ghost:
-    'bg-transparent text-[#64635e] border border-transparent hover:text-[#191919] hover:bg-[#eeede8]/70 active:bg-[#eeede8]',
+    'bg-transparent text-neutral-400 border border-transparent hover:text-neutral-100 hover:bg-neutral-800/80 active:bg-neutral-800',
   secondary:
-    'bg-[#ffffff] text-[#191919] border border-[#e8e6e1] hover:border-[#d4d2cc] hover:bg-[#f4f3ef] active:bg-[#eeede8] shadow-xs',
+    'bg-neutral-900 text-neutral-200 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800 active:bg-neutral-800 shadow-xs',
   outline:
-    'bg-transparent text-[#64635e] border border-[#e8e6e1] hover:border-[#191919] hover:text-[#191919] hover:bg-[#ffffff]',
+    'bg-transparent text-neutral-400 border border-neutral-800 hover:border-neutral-600 hover:text-neutral-200 hover:bg-neutral-900',
   danger:
-    'bg-transparent text-red-600 border border-transparent hover:bg-red-50 active:bg-red-100',
+    'bg-transparent text-rose-400 border border-transparent hover:bg-rose-950/40 hover:text-rose-300 active:bg-rose-950/60',
 };
 
 const sizeStyles: Record<IconButtonSize, string> = {

@@ -66,24 +66,24 @@ export const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-[#191919]/40 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
         onClick={closeOnBackdrop ? onClose : undefined}
       />
 
       {/* Modal Dialog Panel */}
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[#ffffff] border border-[#e8e6e1] rounded-2xl p-6 sm:p-7 shadow-modal flex flex-col gap-4 z-10 animate-scale-up`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-neutral-900 border border-neutral-800 rounded-2xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 z-10 animate-scale-up text-neutral-200`}
       >
         {(title || description) && (
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1 text-left">
               {title && (
-                <h3 id={titleId} className="text-base font-bold tracking-tight text-[#191919]">
+                <h3 id={titleId} className="text-base font-bold tracking-tight text-neutral-100">
                   {title}
                 </h3>
               )}
               {description && (
-                <p id={descId} className="text-xs text-[#64635e] leading-relaxed">
+                <p id={descId} className="text-xs text-neutral-400 leading-relaxed">
                   {description}
                 </p>
               )}
@@ -94,7 +94,7 @@ export const Modal: React.FC<ModalProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-[#64635e] hover:text-[#191919] -mt-1 -mr-1 shrink-0"
+              className="text-neutral-400 hover:text-neutral-200 -mt-1 -mr-1 shrink-0"
             >
               <Icons.X size={15} />
             </IconButton>

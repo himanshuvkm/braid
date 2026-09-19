@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   pageTitle,
 }) => {
   return (
-    <header className="h-14 border-b border-[#e8e6e1] bg-[#faf9f6]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
+    <header className="h-14 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
       {/* Left: Mobile Menu Toggle & Title */}
       <div className="flex items-center gap-3 min-w-0">
         {onToggleMobileSidebar && (
@@ -40,23 +40,23 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="sm"
             onClick={onToggleMobileSidebar}
-            className="md:hidden text-[#64635e] hover:text-[#191919]"
+            className="md:hidden text-neutral-400 hover:text-neutral-100"
           >
             <Icons.Menu size={18} />
           </IconButton>
         )}
 
         <Link href="/dashboard" className="hidden sm:flex items-center gap-2 group">
-          <div className="w-6 h-6 rounded-lg bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs">
+          <div className="w-6 h-6 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-100 flex items-center justify-center shadow-xs">
             <Icons.Logo size={13} />
           </div>
-          <span className="font-bold text-sm tracking-tight text-[#191919]">Braid</span>
+          <span className="font-bold text-sm tracking-tight text-neutral-200">Braid</span>
         </Link>
 
         {pageTitle && (
           <>
-            <span className="hidden sm:inline text-[#d4d2cc] text-xs">/</span>
-            <span className="text-xs sm:text-sm font-semibold text-[#191919] truncate">
+            <span className="hidden sm:inline text-neutral-700 text-xs">/</span>
+            <span className="text-xs sm:text-sm font-semibold text-neutral-200 truncate">
               {pageTitle}
             </span>
           </>
@@ -68,20 +68,20 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Search Bar */}
         {onSearchChange && (
           <div className="relative w-36 sm:w-56 md:w-64">
-            <Icons.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9a9994] pointer-events-none" />
+            <Icons.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
             <input
               type="text"
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 rounded-lg bg-[#f4f3ef] border border-transparent focus:border-[#191919] focus:bg-[#ffffff] text-xs text-[#191919] placeholder-[#9a9994] outline-none transition-all focus:ring-2 focus:ring-[#191919]/10"
+              className="w-full pl-8 pr-7 py-1 rounded-lg bg-neutral-900 border border-neutral-800 focus:border-neutral-600 focus:bg-neutral-950 text-xs text-neutral-200 placeholder-neutral-500 outline-none transition-all focus:ring-2 focus:ring-neutral-700/30"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear search"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9a9994] hover:text-[#191919] p-0.5"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-200 p-0.5"
               >
                 <Icons.X size={12} />
               </button>
@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
               <Avatar
                 name={user.name}
                 size="sm"
-                className="ring-1 ring-[#e8e6e1] group-hover:ring-[#191919] transition-all"
+                className="ring-1 ring-neutral-700 group-hover:ring-neutral-400 transition-all"
               />
             </div>
           }

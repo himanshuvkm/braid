@@ -92,21 +92,21 @@ function LoginForm() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[#191919]/10">
-      <div className="w-full max-w-md bg-[#ffffff] border border-[#e8e6e1] rounded-2xl p-7 sm:p-9 shadow-modal flex flex-col gap-6 animate-fade-in">
+    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-neutral-800 selection:text-neutral-200">
+      <div className="w-full max-w-md bg-neutral-900/90 border border-neutral-800 rounded-2xl p-7 sm:p-9 shadow-2xl flex flex-col gap-6 animate-fade-in">
         {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center gap-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-xl bg-[#191919] text-[#ffffff] flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-100 flex items-center justify-center shadow-xs">
               <Icons.Logo size={18} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-[#191919]">Braid</span>
+            <span className="font-bold text-xl tracking-tight text-neutral-200">Braid</span>
           </Link>
 
-          <h1 className="text-2xl font-bold tracking-tight text-[#191919]">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-100">
             {tab === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p className="text-xs text-[#64635e] leading-relaxed">
+          <p className="text-xs text-neutral-400 leading-relaxed">
             {tab === 'signin'
               ? 'Sign in to access your persistent workspace and documents'
               : 'Start building real-time collaborative documents'}
@@ -114,15 +114,15 @@ function LoginForm() {
         </div>
 
         {/* Tab Selector */}
-        <div className="flex rounded-xl bg-[#f4f3ef] p-1 border border-[#e8e6e1]">
+        <div className="flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
           <button
             type="button"
             onClick={() => {
               setTab('signin');
               setError(null);
             }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20 ${
-              tab === 'signin' ? 'bg-[#ffffff] text-[#191919] shadow-xs' : 'text-[#64635e] hover:text-[#191919]'
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 ${
+              tab === 'signin' ? 'bg-neutral-800 text-neutral-100 shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             Sign In
@@ -133,8 +133,8 @@ function LoginForm() {
               setTab('signup');
               setError(null);
             }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20 ${
-              tab === 'signup' ? 'bg-[#ffffff] text-[#191919] shadow-xs' : 'text-[#64635e] hover:text-[#191919]'
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 ${
+              tab === 'signup' ? 'bg-neutral-800 text-neutral-100 shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             Sign Up
@@ -145,9 +145,9 @@ function LoginForm() {
         {error && (
           <div
             role="alert"
-            className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700 flex items-center gap-2 animate-fade-in"
+            className="p-3 rounded-xl bg-red-950/40 border border-red-800 text-xs font-medium text-red-300 flex items-center gap-2 animate-fade-in"
           >
-            <Icons.AlertCircle size={14} className="shrink-0 text-red-600" />
+            <Icons.AlertCircle size={14} className="shrink-0 text-red-400" />
             <span>{error}</span>
           </div>
         )}
@@ -190,20 +190,24 @@ function LoginForm() {
             minLength={8}
           />
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="md"
-            isLoading={isPending}
-            fullWidth
-            className="mt-2"
+            disabled={isPending}
+            className="w-full py-2.5 rounded-xl bg-neutral-200 hover:bg-white text-neutral-950 text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-2 disabled:opacity-50"
           >
-            {tab === 'signin' ? 'Sign In' : 'Create Account'}
-          </Button>
+            {isPending && <Icons.Spinner size={14} className="animate-spin" />}
+            <span>{tab === 'signin' ? 'Sign In' : 'Create Account'}</span>
+          </button>
         </form>
 
         {/* Divider */}
-        <Divider label="or demo profiles" />
+        <div className="flex items-center gap-3 w-full my-1">
+          <div className="flex-1 h-[1px] bg-neutral-800" />
+          <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider select-none">
+            or demo profiles
+          </span>
+          <div className="flex-1 h-[1px] bg-neutral-800" />
+        </div>
 
         {/* 1-Click Demo Profiles */}
         <div className="grid grid-cols-3 gap-2">
@@ -213,7 +217,7 @@ function LoginForm() {
               type="button"
               onClick={() => handleLogin(u.email, 'password123', u.id)}
               disabled={isPending}
-              className="flex flex-col items-center p-2.5 rounded-xl bg-[#faf9f6] border border-[#e8e6e1] hover:border-[#191919] hover:bg-[#ffffff] transition-all text-center group disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/20"
+              className="flex flex-col items-center p-2.5 rounded-xl bg-neutral-950/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60 transition-all text-center group disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 cursor-pointer"
             >
               <Avatar
                 name={u.name}
@@ -221,15 +225,15 @@ function LoginForm() {
                 size="sm"
                 className="mb-1.5 group-hover:scale-105 transition-transform"
               />
-              <span className="text-xs font-semibold text-[#191919] truncate w-full">{u.name}</span>
-              <span className="text-[10px] text-[#64635e] truncate w-full">{u.role}</span>
+              <span className="text-xs font-semibold text-neutral-200 truncate w-full">{u.name}</span>
+              <span className="text-[10px] text-neutral-400 truncate w-full">{u.role}</span>
             </button>
           ))}
         </div>
 
         {/* Back Link */}
-        <div className="text-center pt-2 border-t border-[#e8e6e1]">
-          <Link href="/" className="text-xs text-[#64635e] hover:text-[#191919] transition-colors inline-flex items-center gap-1.5">
+        <div className="text-center pt-2 border-t border-neutral-800">
+          <Link href="/" className="text-xs text-neutral-400 hover:text-neutral-200 transition-colors inline-flex items-center gap-1.5">
             <Icons.ArrowLeft size={12} />
             <span>Back to Braid</span>
           </Link>
@@ -241,7 +245,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#faf9f6] flex items-center justify-center text-xs text-[#64635e]">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-xs text-neutral-500">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );

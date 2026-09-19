@@ -263,10 +263,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
         {/* Greeting Banner */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191919]">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-100">
               Welcome back, {user.name}
             </h1>
-            <p className="text-xs text-[#64635e] mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
             </p>
           </div>
@@ -284,10 +284,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
         </div>
 
         {/* Workspace Toolbar: Search / Filter summary, Sort dropdown, and Grid/List toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[#e8e6e1]/70">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#191919]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-neutral-800">
+          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-200">
             <span>{pageTitle}</span>
-            <span className="text-[11px] text-[#9a9994] font-normal">
+            <span className="text-[11px] text-neutral-500 font-normal">
               ({sortedProjects.length})
             </span>
           </div>
@@ -299,11 +299,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               trigger={
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-[#64635e] hover:text-[#191919] hover:bg-[#f4f3ef] border border-[#e8e6e1] transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border border-neutral-800 transition-all cursor-pointer"
                 >
-                  <Icons.ArrowUpDown size={12} className="text-[#9a9994]" />
+                  <Icons.ArrowUpDown size={12} className="text-neutral-500" />
                   <span>{sortLabels[sortBy]}</span>
-                  <Icons.ChevronDown size={11} className="text-[#9a9994]" />
+                  <Icons.ChevronDown size={11} className="text-neutral-500" />
                 </button>
               }
               items={[
@@ -326,15 +326,15 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             />
 
             {/* Grid vs List View Toggle */}
-            <div className="flex items-center rounded-lg bg-[#f4f3ef] p-0.5 border border-[#e8e6e1]">
+            <div className="flex items-center rounded-lg bg-neutral-950 p-0.5 border border-neutral-800">
               <button
                 type="button"
                 aria-label="Grid view"
                 onClick={() => handleSetViewMode('grid')}
-                className={`p-1.5 rounded-md transition-all ${
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-[#ffffff] text-[#191919] shadow-xs'
-                    : 'text-[#64635e] hover:text-[#191919]'
+                    ? 'bg-neutral-800 text-neutral-100 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
                 <Icons.Grid size={13} />
@@ -343,10 +343,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                 type="button"
                 aria-label="List view"
                 onClick={() => handleSetViewMode('list')}
-                className={`p-1.5 rounded-md transition-all ${
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${
                   viewMode === 'list'
-                    ? 'bg-[#ffffff] text-[#191919] shadow-xs'
-                    : 'text-[#64635e] hover:text-[#191919]'
+                    ? 'bg-neutral-800 text-neutral-100 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
                 <Icons.List size={13} />
@@ -436,12 +436,12 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               <div
                 key={project.id}
                 onClick={() => router.push(`/${project.id}`)}
-                className="group relative bg-[#ffffff] border border-[#e8e6e1] hover:border-[#191919] rounded-2xl p-5 shadow-card hover:shadow-md transition-all flex flex-col justify-between gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-[#191919]/20"
+                className="group relative bg-neutral-900/90 border border-neutral-800 hover:border-neutral-700 rounded-2xl p-5 shadow-card hover:shadow-xl transition-all flex flex-col justify-between gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-neutral-700"
               >
                 {/* Card Content Top */}
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#f4f3ef] border border-[#e8e6e1] flex items-center justify-center text-[#191919] shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-8 h-8 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center text-neutral-300 shrink-0 group-hover:scale-105 transition-transform">
                       <Icons.Document size={15} />
                     </div>
 
@@ -459,18 +459,18 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                     </Badge>
                   </div>
 
-                  <h3 className="font-bold text-sm sm:text-base text-[#191919] tracking-tight group-hover:text-black line-clamp-1">
+                  <h3 className="font-bold text-sm sm:text-base text-neutral-200 tracking-tight group-hover:text-white line-clamp-1">
                     {project.name}
                   </h3>
 
-                  <p className="text-xs text-[#64635e] line-clamp-2 leading-relaxed font-normal">
+                  <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed font-normal">
                     {cleanPreview(project.content)}
                   </p>
                 </div>
 
                 {/* Card Bottom Meta & Actions */}
-                <div className="flex items-center justify-between pt-3 border-t border-[#e8e6e1] text-xs text-[#64635e]">
-                  <div className="flex items-center gap-2 text-[11px] text-[#9a9994] min-w-0">
+                <div className="flex items-center justify-between pt-3 border-t border-neutral-800/80 text-xs text-neutral-400">
+                  <div className="flex items-center gap-2 text-[11px] text-neutral-500 min-w-0">
                     <Avatar
                       name={project.owner_name || user.name}
                       size="xs"
@@ -493,6 +493,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                         setRenameProject(project);
                         setRenameInput(project.name);
                       }}
+                      className="text-neutral-400 hover:text-neutral-200"
                     >
                       <Icons.Edit size={13} />
                     </IconButton>
@@ -502,6 +503,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDuplicate(project.id)}
+                      className="text-neutral-400 hover:text-neutral-200"
                     >
                       <Icons.Copy size={13} />
                     </IconButton>
@@ -512,6 +514,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                         variant="danger"
                         size="sm"
                         onClick={() => setDeleteProjectId(project.id)}
+                        className="text-neutral-400 hover:text-rose-400"
                       >
                         <Icons.Trash size={13} />
                       </IconButton>
@@ -523,11 +526,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
           </div>
         ) : (
           /* List View (Table / Rows) */
-          <div className="w-full bg-[#ffffff] border border-[#e8e6e1] rounded-2xl shadow-card overflow-hidden">
+          <div className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[#e8e6e1] bg-[#faf9f6] text-[#64635e] font-semibold">
+                  <tr className="border-b border-neutral-800 bg-neutral-950/60 text-neutral-400 font-semibold">
                     <th className="py-3 px-4">Document</th>
                     <th className="py-3 px-4 hidden sm:table-cell">Owner</th>
                     <th className="py-3 px-4">Role</th>
@@ -535,24 +538,24 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#e8e6e1]/60">
+                <tbody className="divide-y divide-neutral-800/60">
                   {sortedProjects.map((project) => (
                     <tr
                       key={project.id}
                       onClick={() => router.push(`/${project.id}`)}
-                      className="hover:bg-[#faf9f6] cursor-pointer transition-colors group"
+                      className="hover:bg-neutral-800/50 cursor-pointer transition-colors group"
                     >
                       {/* Name & Preview */}
                       <td className="py-3.5 px-4 min-w-[200px]">
                         <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-[#f4f3ef] border border-[#e8e6e1] flex items-center justify-center text-[#191919] shrink-0 group-hover:scale-105 transition-transform">
+                          <div className="w-7 h-7 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-center text-neutral-300 shrink-0 group-hover:scale-105 transition-transform">
                             <Icons.Document size={14} />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-xs sm:text-sm text-[#191919] group-hover:text-black truncate">
+                            <span className="font-semibold text-xs sm:text-sm text-neutral-200 group-hover:text-white truncate">
                               {project.name}
                             </span>
-                            <span className="text-[11px] text-[#9a9994] truncate max-w-xs font-normal">
+                            <span className="text-[11px] text-neutral-500 truncate max-w-xs font-normal">
                               {cleanPreview(project.content)}
                             </span>
                           </div>
@@ -560,7 +563,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                       </td>
 
                       {/* Owner */}
-                      <td className="py-3.5 px-4 hidden sm:table-cell text-[#64635e]">
+                      <td className="py-3.5 px-4 hidden sm:table-cell text-neutral-400">
                         <div className="flex items-center gap-2">
                           <Avatar
                             name={project.owner_name || user.name}
@@ -590,7 +593,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                       </td>
 
                       {/* Updated */}
-                      <td className="py-3.5 px-4 hidden md:table-cell text-[#9a9994] text-[11px]">
+                      <td className="py-3.5 px-4 hidden md:table-cell text-neutral-500 text-[11px]">
                         {formatRelativeTime(project.updated_at)}
                       </td>
 
@@ -608,6 +611,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                               setRenameProject(project);
                               setRenameInput(project.name);
                             }}
+                            className="text-neutral-400 hover:text-neutral-200"
                           >
                             <Icons.Edit size={13} />
                           </IconButton>
@@ -617,6 +621,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDuplicate(project.id)}
+                            className="text-neutral-400 hover:text-neutral-200"
                           >
                             <Icons.Copy size={13} />
                           </IconButton>
@@ -627,6 +632,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                               variant="danger"
                               size="sm"
                               onClick={() => setDeleteProjectId(project.id)}
+                              className="text-neutral-400 hover:text-rose-400"
                             >
                               <Icons.Trash size={13} />
                             </IconButton>

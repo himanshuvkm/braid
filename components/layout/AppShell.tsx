@@ -40,7 +40,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-[#191919] flex selection:bg-[#191919]/10">
+    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex selection:bg-neutral-800 selection:text-neutral-200">
       {/* Sidebar Navigation */}
       <Sidebar
         user={user}

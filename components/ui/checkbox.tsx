@@ -30,10 +30,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             {...props}
           />
           <div
-            className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-[#191919]/25 peer-focus-visible:ring-offset-1 ${
+            className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-700 peer-focus-visible:ring-offset-1 ${
               checked
-                ? 'bg-[#191919] border-[#191919] text-[#ffffff]'
-                : 'bg-[#faf9f6] border-[#e8e6e1] group-hover:border-[#191919]'
+                ? 'bg-neutral-100 border-neutral-100 text-neutral-950'
+                : 'bg-neutral-950 border-neutral-800 group-hover:border-neutral-600'
             }`}
           >
             {checked && <Icons.Check size={11} className="stroke-[3]" />}
@@ -43,11 +43,11 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
         {(label || description) && (
           <div className="flex flex-col text-left leading-tight">
             {label && (
-              <span className={`text-xs font-semibold text-[#191919] ${checked ? 'text-black' : ''}`}>
+              <span className={`text-xs font-semibold text-neutral-200 ${checked ? 'text-white' : ''}`}>
                 {label}
               </span>
             )}
-            {description && <span className="text-[11px] text-[#9a9994] mt-0.5">{description}</span>}
+            {description && <span className="text-[11px] text-neutral-500 mt-0.5">{description}</span>}
           </div>
         )}
       </label>
