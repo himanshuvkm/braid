@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0a0a0a;
-  --color-surface: #121212;
-  --color-surface-muted: #18181b;
-  --color-surface-hover: #27272a;
-  --color-border: #262626;
-  --color-border-strong: #3f3f46;
-  --color-text: #ededed;
-  --color-text-muted: #a1a1aa;
-  --color-text-subtle: #71717a;
-  --color-accent: #e25b3e;
-  --color-accent-hover: #f06a4d;
-  --color-accent-subtle: #271916;
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-danger-subtle: #2b1212;
-  --color-success: #22c55e;
-  --color-success-subtle: #0f291e;
-  --color-warning: #f59e0b;
-  --color-warning-subtle: #2e1d05;
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -28,7 +28,8 @@
 }
 
 @layer base {
-  :root {
+  :root,
+  .dark {
     --background: #0a0a0a;
     --surface: #121212;
     --surface-muted: #18181b;
@@ -50,10 +51,36 @@
     --warning-subtle: #2e1d05;
 
     --ring: rgba(255, 255, 255, 0.15);
-
     --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-modal: 0 20px 40px -8px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.6);
+  }
+
+  .light {
+    --background: #fbfbfb;
+    --surface: #ffffff;
+    --surface-muted: #f4f4f5;
+    --surface-hover: #ececee;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --text: #09090b;
+    --text-muted: #71717a;
+    --text-subtle: #a1a1aa;
+    --accent: #e25b3e;
+    --accent-hover: #d04d30;
+    --accent-subtle: #fff1ee;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-subtle: #fee2e2;
+    --success: #16a34a;
+    --success-subtle: #dcfce7;
+    --warning: #d97706;
+    --warning-subtle: #fef3c7;
+
+    --ring: rgba(0, 0, 0, 0.12);
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-modal: 0 20px 40px -8px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
   }
 
   * {
@@ -69,13 +96,14 @@
     -moz-osx-font-smoothing: grayscale;
     margin: 0;
     padding: 0;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -83,12 +111,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--border-strong);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--text-subtle);
 }
 
 /* Accessible focus ring */
@@ -96,7 +124,7 @@
   outline: none;
 }
 .focus-ring:focus-visible {
-  outline: 2px solid rgba(25, 25, 25, 0.25);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
@@ -124,13 +152,18 @@ button, a, input, select, textarea {
 }
 
 @keyframes scaleUp {
-  from { opacity: 0; transform: scale(0.97); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes pulseGlow {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(1.15); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-fade-in {

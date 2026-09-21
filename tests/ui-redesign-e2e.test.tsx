@@ -45,15 +45,14 @@ describe('Complete UI/UX Redesign Verification', () => {
     expect(html).toContain('Have a room code? Join room');
   });
 
-  it('renders redesigned Login Page with tabbed auth and demo profiles', () => {
+  it('renders redesigned Login Page with tabbed auth, Google and GitHub sign in', () => {
     const html = renderToString(<LoginPage />);
     expect(html).toContain('Welcome back');
     expect(html).toContain('Sign In');
     expect(html).toContain('Sign Up');
     expect(html).toContain('Email Address');
-    expect(html).toContain('Alice');
-    expect(html).toContain('Himanshu');
-    expect(html).toContain('Bob');
+    expect(html).toContain('Google');
+    expect(html).toContain('GitHub');
   });
 
   it('renders redesigned Dashboard with workspace sidebar, documents grid, and stats', () => {

@@ -13,6 +13,8 @@ import { Icons } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 import { Modal } from '../ui/modal';
 import { Input } from '../ui/input';
+import { ThemeToggle } from '../ui/theme-toggle';
+import { CommandPalette } from '../ui/command-palette';
 import { PreviousDocumentsSidebar } from '../layout/PreviousDocumentsSidebar';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
@@ -445,27 +447,27 @@ export const Editor: React.FC<EditorProps> = ({
   // If user is not yet joined (direct room URL without prior identity), show Join Room gate
   if (!isJoined) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen w-full p-4 bg-[#0a0a0a] text-[#ededed]">
-        <div className="w-full max-w-sm rounded-2xl bg-neutral-900/90 border border-neutral-800 p-8 shadow-2xl flex flex-col gap-6 animate-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-screen w-full p-4 bg-[var(--background)] text-[var(--text)] transition-colors">
+        <div className="w-full max-w-sm rounded-2xl bg-[var(--surface)] border border-[var(--border)] p-8 shadow-modal flex flex-col gap-6 animate-fade-in transition-colors">
           <div className="flex flex-col items-center text-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-200 flex items-center justify-center mb-1">
+            <div className="w-8 h-8 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center mb-1 shadow-xs">
               <Icons.Logo size={16} />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-950 border border-neutral-800 text-[11px] font-mono text-neutral-400">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-subtle)]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Collaborative Session</span>
             </div>
-            <h2 className="text-lg font-semibold tracking-tight text-neutral-200 mt-1">Join Room</h2>
-            <div className="flex items-center justify-center gap-1.5 text-xs text-neutral-500">
-              <span className="text-neutral-300 font-medium">{roomName}</span>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text)] mt-1">Join Room</h2>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)]">
+              <span className="text-[var(--text)] font-medium">{roomName}</span>
               <span>•</span>
-              <span className="font-mono text-neutral-400">{documentId}</span>
+              <span className="font-mono text-[var(--text-subtle)]">{documentId}</span>
             </div>
           </div>
 
           <form onSubmit={handleJoinGateSubmit} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="join-gate-name" className="text-xs text-neutral-400">
+              <label htmlFor="join-gate-name" className="text-xs text-[var(--text-muted)]">
                 Your Name
               </label>
               <input
@@ -478,10 +480,10 @@ export const Editor: React.FC<EditorProps> = ({
                   if (gateError) setGateError(undefined);
                 }}
                 autoFocus
-                className={`w-full px-3.5 py-2.5 rounded-lg bg-neutral-950 border text-sm text-neutral-200 placeholder-neutral-600 outline-none transition-colors ${
+                className={`w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-muted)] text-[var(--text)] placeholder-[var(--text-subtle)] border text-sm outline-none transition-colors focus:bg-[var(--surface)] ${
                   gateError
                     ? 'border-rose-500/80 focus:border-rose-500'
-                    : 'border-neutral-800 focus:border-neutral-600'
+                    : 'border-[var(--border)] focus:border-[var(--border-strong)]'
                 }`}
               />
               {gateError && (
@@ -491,15 +493,15 @@ export const Editor: React.FC<EditorProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-lg bg-neutral-200 hover:bg-white text-neutral-950 text-xs font-medium transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 mt-1 cursor-pointer"
+              className="w-full py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 mt-1 cursor-pointer shadow-xs"
             >
               <span>Join Document</span>
               <Icons.ArrowRight size={12} />
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-neutral-800">
-            <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors inline-flex items-center gap-1">
+          <div className="text-center pt-2 border-t border-[var(--border)]">
+            <Link href="/" className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors inline-flex items-center gap-1">
               <Icons.ArrowLeft size={11} />
               <span>Back to Home</span>
             </Link>
@@ -509,36 +511,58 @@ export const Editor: React.FC<EditorProps> = ({
     );
   }
 
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Keyboard shortcut: Cmd+K to open Command Palette
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   const totalCollaborators = peers.length + 1;
   const lineCount = Math.max(1, text.split('\n').length);
+  const wordCount = useMemo(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  }, [text]);
+  const readingTimeMins = useMemo(() => {
+    return Math.max(1, Math.ceil(wordCount / 200));
+  }, [wordCount]);
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#0a0a0a] text-[#ededed] selection:bg-neutral-800 selection:text-neutral-200">
-      {/* Top Workspace Navigation Bar - Subtle & In Corners */}
-      <header className="sticky top-0 z-30 px-4 sm:px-6 h-12 flex items-center justify-between border-b border-neutral-900/80 bg-[#0a0a0a]/80 backdrop-blur-md select-none">
+    <div className="flex flex-col min-h-screen w-full bg-[var(--background)] text-[var(--text)] selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors">
+      {/* Top Workspace Navigation Bar */}
+      <header className="sticky top-0 z-30 px-4 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md select-none transition-colors">
         {/* Left: Branding, Room Name & Room ID, Auth Details */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0"
             title="Back to Home"
           >
-            <div className="w-5 h-5 rounded bg-neutral-900 border border-neutral-800 text-neutral-200 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center">
               <Icons.Logo size={11} />
             </div>
-            <span className="font-semibold text-neutral-200">Braid</span>
+            <span className="font-semibold text-[var(--text)]">Braid</span>
           </Link>
 
-          <span className="text-neutral-700 text-xs">/</span>
+          <span className="text-[var(--text-subtle)] text-xs">/</span>
 
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-medium text-xs sm:text-sm text-neutral-300 font-mono truncate max-w-[130px] sm:max-w-xs">
+            <span className="font-medium text-xs sm:text-sm text-[var(--text)] font-mono truncate max-w-[130px] sm:max-w-xs">
               {roomName}
             </span>
             <button
               type="button"
               onClick={handleCopyId}
-              className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 px-2 py-0.5 rounded text-[11px] font-mono text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-1 bg-[var(--surface-muted)] border border-[var(--border)] hover:border-[var(--border-strong)] px-2 py-0.5 rounded-md text-[11px] font-mono text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors cursor-pointer shrink-0"
               title="Copy Room ID"
             >
               <span>{documentId}</span>
@@ -547,30 +571,21 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Auth Login Detail & Name in Left Header Corner */}
-          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-neutral-800">
+          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-[var(--border)]">
             {userId && !userId.startsWith('guest-') ? (
-              <div className="flex items-center gap-1.5 text-xs text-neutral-300">
+              <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
                 <Avatar name={activeUserName} size="xs" />
                 <span className="font-medium text-[11px] truncate max-w-[100px]">{activeUserName}</span>
-                <button
-                  type="button"
-                  onClick={handleOpenEditName}
-                  className="text-[10px] text-neutral-400 hover:text-neutral-200 ml-0.5 cursor-pointer flex items-center gap-0.5"
-                  title="Change display name"
-                >
-                  <Icons.Edit size={10} />
-                  <span>Edit</span>
-                </button>
-                <span className="text-neutral-700">|</span>
-                <Link href="/dashboard" className="text-[10px] text-neutral-400 hover:text-neutral-200">Dashboard</Link>
-                <span className="text-neutral-700">|</span>
+                <span className="text-[var(--text-subtle)]">|</span>
+                <Link href="/dashboard" className="text-[10px] text-[var(--text-subtle)] hover:text-[var(--text)]">Dashboard</Link>
+                <span className="text-[var(--text-subtle)]">|</span>
                 <button
                   type="button"
                   onClick={async () => {
                     await fetch('/api/auth/logout', { method: 'POST' });
                     window.location.reload();
                   }}
-                  className="text-[10px] text-neutral-400 hover:text-rose-400 cursor-pointer flex items-center gap-0.5"
+                  className="text-[10px] text-[var(--text-subtle)] hover:text-rose-400 cursor-pointer flex items-center gap-0.5"
                   title="Log Out"
                 >
                   <Icons.LogOut size={10} />
@@ -579,18 +594,9 @@ export const Editor: React.FC<EditorProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleOpenEditName}
-                  className="text-[11px] font-medium px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
-                  title="Change your display name"
-                >
-                  <Icons.Edit size={10} />
-                  <span>Edit Name</span>
-                </button>
                 <Link
                   href={`/login?from=/${encodeURIComponent(documentId)}`}
-                  className="text-[11px] font-medium px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white transition-all flex items-center gap-1"
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--text)] transition-all flex items-center gap-1"
                 >
                   <Icons.LogIn size={11} />
                   <span>Log In</span>
@@ -602,14 +608,14 @@ export const Editor: React.FC<EditorProps> = ({
 
         {/* Center: Clean Mode Switcher (Text vs Code) */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg bg-neutral-900 border border-neutral-800 p-0.5 text-xs font-medium">
+          <div className="flex items-center rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] p-0.5 text-xs font-medium">
             <button
               type="button"
               onClick={() => setMode('text')}
               className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                 mode === 'text'
-                  ? 'bg-neutral-800 text-neutral-100 shadow-xs'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
+                  : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
               }`}
             >
               <span>Text</span>
@@ -619,8 +625,8 @@ export const Editor: React.FC<EditorProps> = ({
               onClick={() => setMode('code')}
               className={`px-3 py-1 rounded-md font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
                 mode === 'code'
-                  ? 'bg-neutral-800 text-neutral-100 shadow-xs'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
+                  : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
               }`}
             >
               <span>&lt;/&gt; Code</span>
@@ -632,10 +638,10 @@ export const Editor: React.FC<EditorProps> = ({
             <select
               value={codeLanguage}
               onChange={(e) => setCodeLanguage(e.target.value)}
-              className="bg-neutral-900 text-neutral-200 text-xs font-mono rounded-lg px-2.5 py-1 border border-neutral-800 outline-none hover:border-neutral-700 cursor-pointer transition-colors"
+              className="bg-[var(--surface-muted)] text-[var(--text)] text-xs font-mono rounded-lg px-2.5 py-1 border border-[var(--border)] outline-none hover:border-[var(--border-strong)] cursor-pointer transition-colors"
             >
               {CODE_LANGUAGES.map((lang) => (
-                <option key={lang.value} value={lang.value} className="bg-neutral-900 text-neutral-200">
+                <option key={lang.value} value={lang.value} className="bg-[var(--surface)] text-[var(--text)]">
                   {lang.label}
                 </option>
               ))}
@@ -643,10 +649,24 @@ export const Editor: React.FC<EditorProps> = ({
           )}
         </div>
 
-        {/* Right: Autosave Status, Collaborators & Actions */}
+        {/* Right: Theme Toggle, Autosave Status, Collaborators & Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Command Palette Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors"
+            title="Command Palette (⌘K)"
+          >
+            <Icons.Command size={12} />
+            <span className="font-mono text-[10px]">⌘K</span>
+          </button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
           {/* Status Pill */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900/90 border border-neutral-800 text-[11px] font-mono">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] font-mono">
             <span
               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 saveStatus === 'saved' || (!saveStatus && connectionStatus === 'connected')
@@ -658,7 +678,7 @@ export const Editor: React.FC<EditorProps> = ({
                   : 'bg-rose-500'
               }`}
             />
-            <span className="text-neutral-400">
+            <span className="text-[var(--text-subtle)]">
               {saveStatus === 'saving'
                 ? 'Saving...'
                 : saveStatus === 'offline'
@@ -684,22 +704,22 @@ export const Editor: React.FC<EditorProps> = ({
             <button
               type="button"
               onClick={() => setShowPeersDropdown((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-[11px] font-mono text-neutral-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[11px] font-mono text-[var(--text)] transition-colors cursor-pointer"
               title="View Active Collaborators"
             >
-              <Icons.Users size={11} className="text-neutral-400" />
+              <Icons.Users size={11} className="text-[var(--text-subtle)]" />
               <span>{totalCollaborators}</span>
             </button>
 
             {/* Collaborators Dropdown Menu */}
             {showPeersDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 p-2 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl z-40 flex flex-col gap-1 text-xs text-neutral-200 animate-slide-down">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1">
+              <div className="absolute right-0 top-full mt-1.5 w-56 p-2 rounded-2xl bg-[var(--surface)] border border-[var(--border-strong)] shadow-modal z-40 flex flex-col gap-1 text-xs text-[var(--text)] animate-slide-down">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)] px-2 py-1">
                   Active in Room ({totalCollaborators})
                 </div>
                 <div className="flex flex-col gap-1">
                   {/* Current User */}
-                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/80">
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-xl bg-[var(--surface-muted)]">
                     <div className="flex items-center gap-2 min-w-0">
                       <div
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
@@ -708,8 +728,8 @@ export const Editor: React.FC<EditorProps> = ({
                         {activeUserName.slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-medium truncate text-neutral-200">{activeUserName} (you)</span>
-                        <span className="text-[10px] font-mono text-neutral-500">{siteId}</span>
+                        <span className="text-xs font-medium truncate text-[var(--text)]">{activeUserName} (you)</span>
+                        <span className="text-[10px] font-mono text-[var(--text-subtle)]">{siteId}</span>
                       </div>
                     </div>
                     <button
@@ -718,7 +738,7 @@ export const Editor: React.FC<EditorProps> = ({
                         setShowPeersDropdown(false);
                         handleOpenEditName();
                       }}
-                      className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                      className="p-1 text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1"
                       title="Edit display name"
                     >
                       <Icons.Edit size={11} />
@@ -728,7 +748,7 @@ export const Editor: React.FC<EditorProps> = ({
 
                   {/* Remote Peers */}
                   {peers.map((peer) => (
-                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-neutral-800/60">
+                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[var(--surface-muted)]">
                       <div
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
                         style={{ backgroundColor: peer.color || '#F5C6B0' }}
@@ -736,8 +756,8 @@ export const Editor: React.FC<EditorProps> = ({
                         {(peer.name || peer.siteId).slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-medium truncate text-neutral-200">{peer.name || peer.siteId}</span>
-                        <span className="text-[10px] font-mono text-neutral-500">{peer.siteId}</span>
+                        <span className="text-xs font-medium truncate text-[var(--text)]">{peer.name || peer.siteId}</span>
+                        <span className="text-[10px] font-mono text-[var(--text-subtle)]">{peer.siteId}</span>
                       </div>
                     </div>
                   ))}
@@ -750,12 +770,12 @@ export const Editor: React.FC<EditorProps> = ({
           <button
             type="button"
             onClick={handleOpenEditName}
-            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-[11px] font-mono text-neutral-300 hover:text-white transition-colors cursor-pointer group"
+            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[11px] font-mono text-[var(--text)] transition-colors cursor-pointer group"
             title={`You (${siteId || 'init'})`}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: userColor }} />
             <span className="truncate max-w-[90px]">{activeUserName}</span>
-            <Icons.Edit size={10} className="text-neutral-500 group-hover:text-neutral-300 ml-0.5" />
+            <Icons.Edit size={10} className="text-[var(--text-subtle)] group-hover:text-[var(--text)] ml-0.5" />
           </button>
 
           {/* Export Dropdown */}
@@ -771,11 +791,11 @@ export const Editor: React.FC<EditorProps> = ({
           <button
             type="button"
             onClick={handleCopyLink}
-            className="text-xs font-medium px-2.5 py-1 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors flex items-center gap-1 cursor-pointer"
+            className="text-xs font-medium px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text)] transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95"
             title="Share Link"
           >
             <Icons.Share size={11} />
-            <span>{copyFeedback === 'link' ? 'Copied!' : 'Share Link'}</span>
+            <span>{copyFeedback === 'link' ? 'Copied!' : 'Share'}</span>
           </button>
         </div>
       </header>
@@ -833,12 +853,12 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Main Full-Screen Unified Editor Canvas */}
       <div className="flex-1 flex flex-col w-full relative">
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-3 border-l border-neutral-800/80 min-h-[calc(100vh-6.5rem)]">
+        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-3 min-h-[calc(100vh-6.5rem)]">
           {/* Active Mode Header Details */}
-          <div className="flex items-center justify-between pb-2 border-b border-neutral-900/80 select-none text-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[var(--border)] select-none text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-neutral-500">Mode:</span>
-              <span className="text-xs font-semibold text-neutral-300 font-mono">
+              <span className="text-[11px] font-mono text-[var(--text-subtle)]">Mode:</span>
+              <span className="text-xs font-semibold text-[var(--text)] font-mono">
                 {mode === 'text' ? 'Plain Text Editor' : `Code Editor (${codeLanguage.toUpperCase()})`}
               </span>
             </div>
@@ -847,18 +867,18 @@ export const Editor: React.FC<EditorProps> = ({
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="px-2.5 py-1 rounded bg-neutral-900 hover:bg-neutral-800 text-[11px] font-mono text-neutral-300 border border-neutral-800 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] text-[11px] font-mono text-[var(--text)] border border-[var(--border)] transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
               >
                 <span>{copiedCode ? '✓ Copied' : 'Copy All Code'}</span>
               </button>
             )}
           </div>
 
-          {/* Unified Editor Surface (Whole Editor for Text or Code) */}
+          {/* Unified Editor Surface */}
           <div className="flex-1 flex items-start gap-3 w-full">
             {/* Line numbers gutter in Code mode */}
             {mode === 'code' && (
-              <div className="flex flex-col text-right font-mono text-xs text-neutral-600 select-none py-2 pr-2 border-r border-neutral-850 min-w-[2.5rem]">
+              <div className="flex flex-col text-right font-mono text-xs text-[var(--text-subtle)] select-none py-2 pr-2 border-r border-[var(--border)] min-w-[2.5rem]">
                 {Array.from({ length: lineCount }).map((_, i) => (
                   <div key={i} className="leading-6">
                     {i + 1}
@@ -880,8 +900,8 @@ export const Editor: React.FC<EditorProps> = ({
               }
               className={`flex-1 w-full bg-transparent outline-none resize-none leading-6 ${
                 mode === 'code'
-                  ? 'font-mono text-xs sm:text-sm text-neutral-100 placeholder-neutral-700 font-normal'
-                  : 'font-sans text-sm sm:text-base text-neutral-200 placeholder-neutral-700 font-normal'
+                  ? 'font-mono text-xs sm:text-sm text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
+                  : 'font-sans text-sm sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
               }`}
               spellCheck={mode === 'text'}
               autoFocus
@@ -890,21 +910,31 @@ export const Editor: React.FC<EditorProps> = ({
         </main>
       </div>
 
-      {/* Subtle Bottom Diagnostics Bar */}
-      <footer className="px-6 py-2 border-t border-neutral-900 text-[10px] text-neutral-600 font-mono select-none flex items-center justify-between">
+      {/* Floating Minimal Bottom Diagnostics & Reading Stats Pill */}
+      <footer className="sticky bottom-0 z-20 px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md text-[11px] text-[var(--text-subtle)] font-mono select-none flex items-center justify-between transition-colors">
         <div className="flex items-center gap-2">
-          <span>{lineCount} lines</span>
+          <span>{wordCount} words</span>
           <span>•</span>
           <span>{text.length} chars</span>
           <span>•</span>
+          <span>~{readingTimeMins} min read</span>
+          <span>•</span>
+          <span>{lineCount} lines</span>
+        </div>
+        <div className="flex items-center gap-2">
           <span>{rga.getNodes().length} CRDT nodes</span>
           <span>•</span>
           <span>{tombstoneCount} tombstones</span>
-        </div>
-        <div>
-          Site: {siteId || 'init'}
+          <span>•</span>
+          <span>Site: {siteId || 'init'}</span>
         </div>
       </footer>
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
 
       {/* Edit Display Name Modal */}
       <Modal
@@ -928,18 +958,18 @@ export const Editor: React.FC<EditorProps> = ({
             onChange={(e) => setNameInput(e.target.value)}
             autoFocus
           />
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
             <button
               type="button"
               onClick={() => setIsEditingName(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-muted)] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!nameInput.trim()}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-neutral-100 hover:bg-white text-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               Save Name
             </button>
@@ -952,3 +982,4 @@ export const Editor: React.FC<EditorProps> = ({
     </div>
   );
 };
+

@@ -28,7 +28,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="flex flex-col gap-1.5 w-full text-left">
         {label && (
-          <label htmlFor={id} className="text-xs font-semibold text-neutral-300 select-none">
+          <label htmlFor={id} className="text-xs font-semibold text-[var(--text)] select-none">
             {label}
           </label>
         )}
@@ -40,11 +40,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : hint ? hintId : undefined}
-          className={`w-full px-3.5 py-2.5 rounded-xl bg-neutral-950 text-neutral-100 placeholder-neutral-500 border transition-all duration-150 outline-none focus:bg-neutral-900/80 text-sm resize-y ${
+          className={`w-full px-3.5 py-2.5 rounded-xl bg-[var(--surface-muted)] text-[var(--text)] placeholder-[var(--text-subtle)] border transition-all duration-150 outline-none focus:bg-[var(--surface)] text-sm resize-y ${
             error
               ? 'border-red-500/80 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
-              : 'border-neutral-800 focus:border-neutral-600 focus:ring-2 focus:ring-neutral-700/30'
-          } ${disabled ? 'opacity-50 cursor-not-allowed bg-neutral-900' : ''} ${className}`}
+              : 'border-[var(--border)] focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/20'
+          } ${disabled ? 'opacity-50 cursor-not-allowed bg-[var(--surface-muted)]' : ''} ${className}`}
           {...props}
         />
 
@@ -55,7 +55,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
 
         {!error && hint && (
-          <p id={hintId} className="text-[11px] text-neutral-500">
+          <p id={hintId} className="text-[11px] text-[var(--text-subtle)]">
             {hint}
           </p>
         )}

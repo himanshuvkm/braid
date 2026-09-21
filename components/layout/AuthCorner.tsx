@@ -59,30 +59,30 @@ export function AuthCorner({ initialUser, className = '', onLogoutSuccess }: Aut
     <div className={`fixed top-4 left-4 z-30 flex items-center gap-2 ${className}`}>
       {user ? (
         /* Logged In View */
-        <div className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-neutral-900/90 backdrop-blur-md border border-neutral-800 shadow-sm animate-fade-in text-xs">
+        <div className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-[var(--surface)]/90 backdrop-blur-md border border-[var(--border)] shadow-xs animate-fade-in text-xs">
           <Avatar name={user.name} size="xs" />
-          <span className="font-semibold text-neutral-200 truncate max-w-[120px]">
+          <span className="font-semibold text-[var(--text)] truncate max-w-[120px]">
             {user.name}
           </span>
 
-          <span className="text-neutral-700">|</span>
+          <span className="text-[var(--border)]">|</span>
 
           <Link
             href="/dashboard"
-            className="text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
             title="Open Workspace Dashboard"
           >
             Dashboard
           </Link>
 
-          <span className="text-neutral-700">|</span>
+          <span className="text-[var(--border)]">|</span>
 
           <button
             type="button"
             onClick={handleLogout}
             disabled={isLoggingOut}
             title="Log out"
-            className="flex items-center gap-1 text-[11px] font-medium text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
           >
             {isLoggingOut ? (
               <Icons.Spinner size={11} className="animate-spin" />
@@ -96,9 +96,9 @@ export function AuthCorner({ initialUser, className = '', onLogoutSuccess }: Aut
         /* Not Logged In View */
         <Link
           href="/login"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-neutral-800 hover:border-neutral-700 text-neutral-200 hover:text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] animate-fade-in"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--surface)]/90 hover:bg-[var(--surface-hover)] backdrop-blur-md border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--text)] text-xs font-semibold shadow-xs transition-all active:scale-[0.98] animate-fade-in"
         >
-          <Icons.User size={13} className="text-neutral-400" />
+          <Icons.User size={13} className="text-[var(--text-subtle)]" />
           <span>Log In</span>
         </Link>
       )}

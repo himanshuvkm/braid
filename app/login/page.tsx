@@ -6,8 +6,7 @@ import Link from 'next/link';
 import { Icons } from '../../components/ui/icons';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
-import { Divider } from '../../components/ui/divider';
-import { Avatar } from '../../components/ui/avatar';
+import { ThemeToggle } from '../../components/ui/theme-toggle';
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +18,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleLogin = async (loginEmail: string, loginPassword?: string, userId?: string) => {
@@ -85,60 +85,114 @@ function LoginForm() {
     }
   };
 
-  const demoUsers = [
-    { id: 'user-himanshu', name: 'Himanshu', email: 'himanshu@braid.app', initial: 'H', color: '#d95338', role: 'Owner' },
-    { id: 'user-alice', name: 'Alice', email: 'alice@braid.app', initial: 'A', color: '#3b82f6', role: 'Product Lead' },
-    { id: 'user-bob', name: 'Bob', email: 'bob@braid.app', initial: 'B', color: '#10b981', role: 'Designer' },
-  ];
+  const handleSocialAuth = async (provider: 'google' | 'github') => {
+    setError(null);
+    setSocialLoading(provider);
+    try {
+      const providerEmail = provider === 'google' ? 'user.google@braid.app' : 'user.github@braid.app';
+      const providerName = provider === 'google' ? 'Google User' : 'GitHub User';
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: providerEmail,
+          password: 'oauth-social-login-token',
+        }),
+      });
+
+      if (!res.ok) {
+        const regRes = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: providerName,
+            email: providerEmail,
+            password: 'oauth-social-login-token',
+          }),
+        });
+        if (!regRes.ok) {
+          const regData = await regRes.json();
+          throw new Error(regData.error || `${provider} authentication failed`);
+        }
+      }
+
+      startTransition(() => {
+        router.push(from);
+        router.refresh();
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : `${provider} login failed`);
+    } finally {
+      setSocialLoading(null);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-neutral-800 selection:text-neutral-200">
-      <div className="w-full max-w-md bg-neutral-900/90 border border-neutral-800 rounded-2xl p-7 sm:p-9 shadow-2xl flex flex-col gap-6 animate-fade-in">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors relative">
+      {/* Top Right Theme Toggle */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-7 sm:p-9 shadow-modal flex flex-col gap-6 animate-fade-in transition-colors">
         {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center gap-2">
-          <Link href="/" className="inline-flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-100 flex items-center justify-center shadow-xs">
+          <Link href="/" className="inline-flex items-center gap-2 mb-2 hover:opacity-85 transition-opacity">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs">
               <Icons.Logo size={18} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-neutral-200">Braid</span>
+            <span className="font-bold text-xl tracking-tight text-[var(--text)]">Braid</span>
           </Link>
 
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-100">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">
             {tab === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p className="text-xs text-neutral-400 leading-relaxed">
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
             {tab === 'signin'
               ? 'Sign in to access your persistent workspace and documents'
               : 'Start building real-time collaborative documents'}
           </p>
         </div>
 
-        {/* Tab Selector */}
-        <div className="flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
+        {/* 2 Social Buttons Left & Right: Google and GitHub */}
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => {
-              setTab('signin');
-              setError(null);
-            }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 ${
-              tab === 'signin' ? 'bg-neutral-800 text-neutral-100 shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
-            }`}
+            onClick={() => handleSocialAuth('google')}
+            disabled={socialLoading !== null || isPending}
+            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--border-strong)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
           >
-            Sign In
+            {socialLoading === 'google' ? (
+              <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
+            ) : (
+              <Icons.Google size={16} />
+            )}
+            <span>Google</span>
           </button>
+
           <button
             type="button"
-            onClick={() => {
-              setTab('signup');
-              setError(null);
-            }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 ${
-              tab === 'signup' ? 'bg-neutral-800 text-neutral-100 shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
-            }`}
+            onClick={() => handleSocialAuth('github')}
+            disabled={socialLoading !== null || isPending}
+            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--border-strong)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
           >
-            Sign Up
+            {socialLoading === 'github' ? (
+              <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
+            ) : (
+              <Icons.GitHub size={16} className="text-[var(--text)]" />
+            )}
+            <span>GitHub</span>
           </button>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 w-full my-0.5">
+          <div className="flex-1 h-[1px] bg-[var(--border)]" />
+          <span className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wider select-none">
+            or with email
+          </span>
+          <div className="flex-1 h-[1px] bg-[var(--border)]" />
         </div>
 
         {/* Error Notification */}
@@ -162,7 +216,7 @@ function LoginForm() {
               id="auth-name"
               label="Your Name"
               type="text"
-              placeholder="e.g. Himanshu"
+              placeholder="e.g. Alex"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -192,48 +246,34 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={isPending}
-            className="w-full py-2.5 rounded-xl bg-neutral-200 hover:bg-white text-neutral-950 text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-2 disabled:opacity-50"
+            disabled={isPending || socialLoading !== null}
+            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1 disabled:opacity-50 shadow-xs"
           >
             {isPending && <Icons.Spinner size={14} className="animate-spin" />}
-            <span>{tab === 'signin' ? 'Sign In' : 'Create Account'}</span>
+            <span>{tab === 'signin' ? 'Sign In' : 'Sign Up'}</span>
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 w-full my-1">
-          <div className="flex-1 h-[1px] bg-neutral-800" />
-          <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider select-none">
-            or demo profiles
+        {/* Switcher / Bottom Tab Selector */}
+        <div className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-subtle)] pt-1">
+          <span>
+            {tab === 'signin' ? "Don't have an account?" : 'Already have an account?'}
           </span>
-          <div className="flex-1 h-[1px] bg-neutral-800" />
-        </div>
-
-        {/* 1-Click Demo Profiles */}
-        <div className="grid grid-cols-3 gap-2">
-          {demoUsers.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              onClick={() => handleLogin(u.email, 'password123', u.id)}
-              disabled={isPending}
-              className="flex flex-col items-center p-2.5 rounded-xl bg-neutral-950/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60 transition-all text-center group disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 cursor-pointer"
-            >
-              <Avatar
-                name={u.name}
-                color={u.color}
-                size="sm"
-                className="mb-1.5 group-hover:scale-105 transition-transform"
-              />
-              <span className="text-xs font-semibold text-neutral-200 truncate w-full">{u.name}</span>
-              <span className="text-[10px] text-neutral-400 truncate w-full">{u.role}</span>
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setTab(tab === 'signin' ? 'signup' : 'signin');
+              setError(null);
+            }}
+            className="font-semibold text-[var(--accent)] hover:underline cursor-pointer"
+          >
+            {tab === 'signin' ? 'Sign Up' : 'Sign In'}
+          </button>
         </div>
 
         {/* Back Link */}
-        <div className="text-center pt-2 border-t border-neutral-800">
-          <Link href="/" className="text-xs text-neutral-400 hover:text-neutral-200 transition-colors inline-flex items-center gap-1.5">
+        <div className="text-center pt-2 border-t border-[var(--border)]">
+          <Link href="/" className="text-xs text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors inline-flex items-center gap-1.5">
             <Icons.ArrowLeft size={12} />
             <span>Back to Braid</span>
           </Link>
@@ -245,7 +285,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-xs text-neutral-500">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--background)] flex items-center justify-center text-xs text-[var(--text-subtle)]">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );

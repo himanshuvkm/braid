@@ -44,18 +44,18 @@ describe('Auth Corner, Previous Documents Sidebar, and Theme Consistency', () =>
     expect(html).toContain('Previous Documents');
   });
 
-  it('renders Home landing page with dark theme, AuthCorner, and PreviousDocumentsSidebar', () => {
+  it('renders Home landing page with theme tokens, AuthCorner, and PreviousDocumentsSidebar', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
     expect(html).toContain('Start Writing');
-    expect(html).toContain('bg-[#0a0a0a]');
+    expect(html).toContain('bg-[var(--background)]');
     expect(html).toContain('Previous Documents');
   });
 
-  it('renders Login page matching the dark theme #0a0a0a and dark cards', () => {
+  it('renders Login page matching the semantic theme system and surface cards', () => {
     const html = renderToString(<LoginPage />);
-    expect(html).toContain('bg-[#0a0a0a]');
-    expect(html).toContain('bg-neutral-900');
+    expect(html).toContain('bg-[var(--background)]');
+    expect(html).toContain('bg-[var(--surface)]');
     expect(html).toContain('Welcome back');
     expect(html).toContain('Sign In');
     expect(html).toContain('Sign Up');

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, ProjectWithRole } from '../../lib/db';
 import { Icons } from '../../components/ui/icons';
@@ -14,6 +14,7 @@ import { Dropdown } from '../../components/ui/dropdown';
 import { EmptyState } from '../../components/ui/empty-state';
 import { useToast } from '../../components/ui/toast';
 import { AppShell } from '../../components/layout/AppShell';
+import { CommandPalette } from '../../components/ui/command-palette';
 import type { DashboardFilter } from '../../components/layout/Sidebar';
 
 interface DashboardClientProps {
@@ -57,7 +58,6 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<DashboardFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('updated');
-  const [currentTime] = useState(() => Date.now());
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -70,6 +70,8 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     return 'grid';
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
   // Modals state
   const [renameProject, setRenameProject] = useState<ProjectWithRole | null>(null);
@@ -94,7 +96,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     }
   };
 
-  const handleCreateProject = async () => {
+  const handleCreateProject = useCallback(async () => {
     setIsCreating(true);
     try {
       const res = await fetch('/api/projects', {
@@ -112,7 +114,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       toast(err instanceof Error ? err.message : 'Create failed', 'error');
       setIsCreating(false);
     }
-  };
+  }, [router, toast]);
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +169,15 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     }
   };
 
+  const handleCopyLink = (projectId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      const url = `${window.location.origin}/project/${projectId}`;
+      navigator.clipboard.writeText(url);
+      toast('Share link copied to clipboard');
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteProjectId) return;
     setIsDeleting(true);
@@ -189,28 +200,29 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     }
   };
 
-  // Filter and search logic
+  // Filtered projects
   const filteredProjects = useMemo(() => {
-    return projects.filter((p) => {
-      const matchesSearch =
-        !searchQuery.trim() ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.content.toLowerCase().includes(searchQuery.toLowerCase());
-
-      if (!matchesSearch) return false;
-
-      if (activeFilter === 'owned') return p.role === 'OWNER';
-      if (activeFilter === 'shared') return p.role !== 'OWNER';
+    return projects.filter((project) => {
+      if (activeFilter === 'owned' && project.role !== 'OWNER') return false;
+      if (activeFilter === 'shared' && project.role === 'OWNER') return false;
       if (activeFilter === 'recent') {
-        const sevenDaysAgo = currentTime - 7 * 24 * 60 * 60 * 1000;
-        return p.updated_at >= sevenDaysAgo;
+        const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+        if (project.updated_at < threeDaysAgo) return false;
       }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = project.name.toLowerCase().includes(q);
+        const matchContent = project.content?.toLowerCase().includes(q);
+        const matchOwner = project.owner_name?.toLowerCase().includes(q);
+        if (!matchTitle && !matchContent && !matchOwner) return false;
+      }
+
       return true;
     });
-  }, [projects, searchQuery, activeFilter, currentTime]);
+  }, [projects, activeFilter, searchQuery]);
 
-  // Sort logic
+  // Sorted projects
   const sortedProjects = useMemo(() => {
     const list = [...filteredProjects];
     if (sortBy === 'updated') {
@@ -223,13 +235,53 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     return list;
   }, [filteredProjects, sortBy]);
 
-  const sevenDaysAgo = currentTime - 7 * 24 * 60 * 60 * 1000;
-  const counts = {
-    all: projects.length,
-    owned: projects.filter((p) => p.role === 'OWNER').length,
-    shared: projects.filter((p) => p.role !== 'OWNER').length,
-    recent: projects.filter((p) => p.updated_at >= sevenDaysAgo).length,
-  };
+  // Global keyboard shortcuts: Cmd+K for command palette, Cmd+N for new doc, j/k to navigate list
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if typing in an input or modal is open
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !isInput) {
+        e.preventDefault();
+        handleCreateProject();
+        return;
+      }
+
+      if (!isInput && !isCommandPaletteOpen && !renameProject && !deleteProjectId) {
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          setHighlightedIndex((prev) => Math.min(prev + 1, sortedProjects.length - 1));
+        } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter' && highlightedIndex >= 0 && sortedProjects[highlightedIndex]) {
+          e.preventDefault();
+          router.push(`/${sortedProjects[highlightedIndex].id}`);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCreateProject, isCommandPaletteOpen, renameProject, deleteProjectId, highlightedIndex, sortedProjects, router]);
+
+  // Counts for sidebar
+  const counts = useMemo(() => {
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    return {
+      all: projects.length,
+      owned: projects.filter((p) => p.role === 'OWNER').length,
+      shared: projects.filter((p) => p.role !== 'OWNER').length,
+      recent: projects.filter((p) => p.updated_at >= threeDaysAgo).length,
+    };
+  }, [projects]);
 
   const pageTitle =
     activeFilter === 'all'
@@ -257,37 +309,48 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       onSignOut={handleSignOut}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
+      onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       pageTitle={pageTitle}
     >
       <main className="p-4 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-6 sm:gap-7 flex-1">
         {/* Greeting Banner */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-100">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text)]">
               Welcome back, {user.name}
             </h1>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
             </p>
           </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleCreateProject}
-            isLoading={isCreating}
-            leftIcon={<Icons.Plus size={14} />}
-            className="self-start sm:self-auto"
-          >
-            New document
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsCommandPaletteOpen(true)}
+              leftIcon={<Icons.Command size={14} />}
+              className="hidden sm:inline-flex"
+            >
+              Command menu
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleCreateProject}
+              isLoading={isCreating}
+              leftIcon={<Icons.Plus size={14} />}
+            >
+              New document
+            </Button>
+          </div>
         </div>
 
         {/* Workspace Toolbar: Search / Filter summary, Sort dropdown, and Grid/List toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-neutral-800">
-          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-200">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text)]">
             <span>{pageTitle}</span>
-            <span className="text-[11px] text-neutral-500 font-normal">
+            <span className="text-[11px] text-[var(--text-subtle)] font-normal">
               ({sortedProjects.length})
             </span>
           </div>
@@ -299,11 +362,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               trigger={
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border border-neutral-800 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-muted)] border border-[var(--border)] transition-all cursor-pointer"
                 >
-                  <Icons.ArrowUpDown size={12} className="text-neutral-500" />
+                  <Icons.ArrowUpDown size={12} className="text-[var(--text-subtle)]" />
                   <span>{sortLabels[sortBy]}</span>
-                  <Icons.ChevronDown size={11} className="text-neutral-500" />
+                  <Icons.ChevronDown size={11} className="text-[var(--text-subtle)]" />
                 </button>
               }
               items={[
@@ -326,15 +389,15 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             />
 
             {/* Grid vs List View Toggle */}
-            <div className="flex items-center rounded-lg bg-neutral-950 p-0.5 border border-neutral-800">
+            <div className="flex items-center rounded-lg bg-[var(--surface-muted)] p-0.5 border border-[var(--border)]">
               <button
                 type="button"
                 aria-label="Grid view"
                 onClick={() => handleSetViewMode('grid')}
                 className={`p-1.5 rounded-md transition-all cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-neutral-800 text-neutral-100 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-300'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs'
+                    : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
                 <Icons.Grid size={13} />
@@ -345,8 +408,8 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                 onClick={() => handleSetViewMode('list')}
                 className={`p-1.5 rounded-md transition-all cursor-pointer ${
                   viewMode === 'list'
-                    ? 'bg-neutral-800 text-neutral-100 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-300'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs'
+                    : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
                 <Icons.List size={13} />
@@ -355,10 +418,9 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
           </div>
         </div>
 
-        {/* Content Area: Grid View, List View, or Context-Sensitive Empty State */}
+        {/* Content Area: Grid View, List View, or Empty State */}
         {sortedProjects.length === 0 ? (
           searchQuery ? (
-            /* Empty State: Search */
             <EmptyState
               icon={<Icons.Search size={20} />}
               title="No documents matched your search"
@@ -375,7 +437,6 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               }
             />
           ) : activeFilter !== 'all' ? (
-            /* Empty State: Filter */
             <EmptyState
               icon={
                 activeFilter === 'shared' ? (
@@ -411,7 +472,6 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               }
             />
           ) : (
-            /* Empty State: Global */
             <EmptyState
               icon={<Icons.Document size={20} />}
               title="No documents yet"
@@ -430,107 +490,125 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             />
           )
         ) : viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {sortedProjects.map((project) => (
-              <div
-                key={project.id}
-                onClick={() => router.push(`/${project.id}`)}
-                className="group relative bg-neutral-900/90 border border-neutral-800 hover:border-neutral-700 rounded-2xl p-5 shadow-card hover:shadow-xl transition-all flex flex-col justify-between gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-neutral-700"
-              >
-                {/* Card Content Top */}
-                <div className="flex flex-col gap-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center text-neutral-300 shrink-0 group-hover:scale-105 transition-transform">
-                      <Icons.Document size={15} />
+          /* Grid View with smooth card lift */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 animate-fade-in">
+            {sortedProjects.map((project, idx) => {
+              const isHighlighted = idx === highlightedIndex;
+              return (
+                <div
+                  key={project.id}
+                  onClick={() => router.push(`/${project.id}`)}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  className={`group relative bg-[var(--surface)] border rounded-2xl p-5 shadow-card hover:shadow-modal transition-all flex flex-col justify-between gap-4 cursor-pointer select-none hover:-translate-y-0.5 ${
+                    isHighlighted
+                      ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]'
+                      : 'border-[var(--border)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  {/* Card Top */}
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 transition-transform">
+                        <Icons.Document size={15} />
+                      </div>
+
+                      <Badge
+                        variant={
+                          project.role === 'OWNER'
+                            ? 'neutral'
+                            : project.role === 'EDITOR'
+                            ? 'blue'
+                            : 'warning'
+                        }
+                        size="sm"
+                      >
+                        {project.role}
+                      </Badge>
                     </div>
 
-                    <Badge
-                      variant={
-                        project.role === 'OWNER'
-                          ? 'neutral'
-                          : project.role === 'EDITOR'
-                          ? 'blue'
-                          : 'warning'
-                      }
-                      size="sm"
-                    >
-                      {project.role}
-                    </Badge>
+                    <h3 className="font-bold text-sm sm:text-base text-[var(--text)] tracking-tight group-hover:text-[var(--accent)] line-clamp-1 transition-colors">
+                      {project.name}
+                    </h3>
+
+                    <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed font-normal">
+                      {cleanPreview(project.content)}
+                    </p>
                   </div>
 
-                  <h3 className="font-bold text-sm sm:text-base text-neutral-200 tracking-tight group-hover:text-white line-clamp-1">
-                    {project.name}
-                  </h3>
+                  {/* Card Bottom Meta & Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
+                    <div className="flex items-center gap-2 text-[11px] text-[var(--text-subtle)] min-w-0">
+                      <Avatar
+                        name={project.owner_name || user.name}
+                        size="xs"
+                        className="shrink-0"
+                      />
+                      <span className="truncate">
+                        {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
+                      </span>
+                      <span>•</span>
+                      <span className="shrink-0">{formatRelativeTime(project.updated_at)}</span>
+                    </div>
 
-                  <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed font-normal">
-                    {cleanPreview(project.content)}
-                  </p>
-                </div>
-
-                {/* Card Bottom Meta & Actions */}
-                <div className="flex items-center justify-between pt-3 border-t border-neutral-800/80 text-xs text-neutral-400">
-                  <div className="flex items-center gap-2 text-[11px] text-neutral-500 min-w-0">
-                    <Avatar
-                      name={project.owner_name || user.name}
-                      size="xs"
-                      className="shrink-0"
-                    />
-                    <span className="truncate">
-                      {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
-                    </span>
-                    <span>•</span>
-                    <span className="shrink-0">{formatRelativeTime(project.updated_at)}</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                    <IconButton
-                      aria-label="Rename document"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setRenameProject(project);
-                        setRenameInput(project.name);
-                      }}
-                      className="text-neutral-400 hover:text-neutral-200"
-                    >
-                      <Icons.Edit size={13} />
-                    </IconButton>
-
-                    <IconButton
-                      aria-label="Duplicate document"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDuplicate(project.id)}
-                      className="text-neutral-400 hover:text-neutral-200"
-                    >
-                      <Icons.Copy size={13} />
-                    </IconButton>
-
-                    {project.role === 'OWNER' && (
+                    {/* Quick Action Buttons */}
+                    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                       <IconButton
-                        aria-label="Delete document"
-                        variant="danger"
+                        aria-label="Copy share link"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setDeleteProjectId(project.id)}
-                        className="text-neutral-400 hover:text-rose-400"
+                        onClick={(e) => handleCopyLink(project.id, e)}
+                        className="text-[var(--text-subtle)] hover:text-[var(--text)]"
                       >
-                        <Icons.Trash size={13} />
+                        <Icons.Share size={13} />
                       </IconButton>
-                    )}
+
+                      <IconButton
+                        aria-label="Rename document"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRenameProject(project);
+                          setRenameInput(project.name);
+                        }}
+                        className="text-[var(--text-subtle)] hover:text-[var(--text)]"
+                      >
+                        <Icons.Edit size={13} />
+                      </IconButton>
+
+                      <IconButton
+                        aria-label="Duplicate document"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDuplicate(project.id)}
+                        className="text-[var(--text-subtle)] hover:text-[var(--text)]"
+                      >
+                        <Icons.Copy size={13} />
+                      </IconButton>
+
+                      {project.role === 'OWNER' && (
+                        <IconButton
+                          aria-label="Delete document"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setDeleteProjectId(project.id)}
+                          className="text-[var(--text-subtle)] hover:text-rose-400"
+                        >
+                          <Icons.Trash size={13} />
+                        </IconButton>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          /* List View (Table / Rows) */
-          <div className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl shadow-card overflow-hidden">
+          /* List View */
+          <div className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-card overflow-hidden animate-fade-in">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-800 bg-neutral-950/60 text-neutral-400 font-semibold">
+                  <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-subtle)] font-semibold">
                     <th className="py-3 px-4">Document</th>
                     <th className="py-3 px-4 hidden sm:table-cell">Owner</th>
                     <th className="py-3 px-4">Role</th>
@@ -538,115 +616,141 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800/60">
-                  {sortedProjects.map((project) => (
-                    <tr
-                      key={project.id}
-                      onClick={() => router.push(`/${project.id}`)}
-                      className="hover:bg-neutral-800/50 cursor-pointer transition-colors group"
-                    >
-                      {/* Name & Preview */}
-                      <td className="py-3.5 px-4 min-w-[200px]">
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-center text-neutral-300 shrink-0 group-hover:scale-105 transition-transform">
-                            <Icons.Document size={14} />
+                <tbody className="divide-y divide-[var(--border)]">
+                  {sortedProjects.map((project, idx) => {
+                    const isHighlighted = idx === highlightedIndex;
+                    return (
+                      <tr
+                        key={project.id}
+                        onClick={() => router.push(`/${project.id}`)}
+                        onMouseEnter={() => setHighlightedIndex(idx)}
+                        className={`hover:bg-[var(--surface-hover)] cursor-pointer transition-colors group ${
+                          isHighlighted ? 'bg-[var(--surface-muted)]' : ''
+                        }`}
+                      >
+                        {/* Name & Preview */}
+                        <td className="py-3.5 px-4 min-w-[200px]">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 transition-transform">
+                              <Icons.Document size={14} />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-xs sm:text-sm text-[var(--text)] group-hover:text-[var(--accent)] truncate transition-colors">
+                                {project.name}
+                              </span>
+                              <span className="text-[11px] text-[var(--text-subtle)] truncate max-w-xs font-normal">
+                                {cleanPreview(project.content)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-xs sm:text-sm text-neutral-200 group-hover:text-white truncate">
-                              {project.name}
-                            </span>
-                            <span className="text-[11px] text-neutral-500 truncate max-w-xs font-normal">
-                              {cleanPreview(project.content)}
+                        </td>
+
+                        {/* Owner */}
+                        <td className="py-3.5 px-4 hidden sm:table-cell text-[var(--text-muted)]">
+                          <div className="flex items-center gap-2">
+                            <Avatar
+                              name={project.owner_name || user.name}
+                              size="xs"
+                              className="shrink-0"
+                            />
+                            <span className="truncate">
+                              {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
                             </span>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Owner */}
-                      <td className="py-3.5 px-4 hidden sm:table-cell text-neutral-400">
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            name={project.owner_name || user.name}
-                            size="xs"
-                            className="shrink-0"
-                          />
-                          <span className="truncate">
-                            {project.role === 'OWNER' ? 'You' : project.owner_name || 'Collaborator'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Role */}
-                      <td className="py-3.5 px-4">
-                        <Badge
-                          variant={
-                            project.role === 'OWNER'
-                              ? 'neutral'
-                              : project.role === 'EDITOR'
-                              ? 'blue'
-                              : 'warning'
-                          }
-                          size="sm"
-                        >
-                          {project.role}
-                        </Badge>
-                      </td>
-
-                      {/* Updated */}
-                      <td className="py-3.5 px-4 hidden md:table-cell text-neutral-500 text-[11px]">
-                        {formatRelativeTime(project.updated_at)}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div
-                          className="inline-flex items-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <IconButton
-                            aria-label="Rename document"
-                            variant="ghost"
+                        {/* Role */}
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={
+                              project.role === 'OWNER'
+                                ? 'neutral'
+                                : project.role === 'EDITOR'
+                                ? 'blue'
+                                : 'warning'
+                            }
                             size="sm"
-                            onClick={() => {
-                              setRenameProject(project);
-                              setRenameInput(project.name);
-                            }}
-                            className="text-neutral-400 hover:text-neutral-200"
                           >
-                            <Icons.Edit size={13} />
-                          </IconButton>
+                            {project.role}
+                          </Badge>
+                        </td>
 
-                          <IconButton
-                            aria-label="Duplicate document"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDuplicate(project.id)}
-                            className="text-neutral-400 hover:text-neutral-200"
+                        {/* Updated */}
+                        <td className="py-3.5 px-4 hidden md:table-cell text-[var(--text-subtle)] text-[11px]">
+                          {formatRelativeTime(project.updated_at)}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div
+                            className="inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Icons.Copy size={13} />
-                          </IconButton>
-
-                          {project.role === 'OWNER' && (
                             <IconButton
-                              aria-label="Delete document"
-                              variant="danger"
+                              aria-label="Copy share link"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => setDeleteProjectId(project.id)}
-                              className="text-neutral-400 hover:text-rose-400"
+                              onClick={(e) => handleCopyLink(project.id, e)}
+                              className="text-[var(--text-subtle)] hover:text-[var(--text)]"
                             >
-                              <Icons.Trash size={13} />
+                              <Icons.Share size={13} />
                             </IconButton>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+
+                            <IconButton
+                              aria-label="Rename document"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRenameProject(project);
+                                setRenameInput(project.name);
+                              }}
+                              className="text-[var(--text-subtle)] hover:text-[var(--text)]"
+                            >
+                              <Icons.Edit size={13} />
+                            </IconButton>
+
+                            <IconButton
+                              aria-label="Duplicate document"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDuplicate(project.id)}
+                              className="text-[var(--text-subtle)] hover:text-[var(--text)]"
+                            >
+                              <Icons.Copy size={13} />
+                            </IconButton>
+
+                            {project.role === 'OWNER' && (
+                              <IconButton
+                                aria-label="Delete document"
+                                variant="danger"
+                                size="sm"
+                                onClick={() => setDeleteProjectId(project.id)}
+                                className="text-[var(--text-subtle)] hover:text-rose-400"
+                              >
+                                <Icons.Trash size={13} />
+                              </IconButton>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
       </main>
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        projects={projects}
+        onCreateDocument={handleCreateProject}
+        onToggleViewMode={() => handleSetViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+        currentViewMode={viewMode}
+      />
 
       {/* Standardized Rename Modal */}
       <Modal

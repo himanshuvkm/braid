@@ -186,14 +186,14 @@ export function ExportDropdown({
           isSmall ? 'h-8 px-2.5 text-xs gap-1.5' : 'h-9 px-3 text-xs gap-2'
         } ${
           isOpen
-            ? 'bg-neutral-800 text-neutral-200 border-neutral-700'
-            : 'bg-neutral-900/80 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:bg-neutral-800'
+            ? 'bg-[var(--surface-hover)] text-[var(--text)] border-[var(--border-strong)]'
+            : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)]'
         }`}
       >
         {isExporting ? (
-          <Icons.Spinner size={isSmall ? 11 : 13} className="animate-spin text-neutral-400" />
+          <Icons.Spinner size={isSmall ? 11 : 13} className="animate-spin text-[var(--text-subtle)]" />
         ) : (
-          <Icons.Download size={isSmall ? 11 : 13} className="text-neutral-400" />
+          <Icons.Download size={isSmall ? 11 : 13} className="text-[var(--text-subtle)]" />
         )}
 
         <span>
@@ -207,7 +207,7 @@ export function ExportDropdown({
         {!isExporting && (
           <Icons.ChevronDown
             size={isSmall ? 10 : 11}
-            className={`text-neutral-500 transition-transform duration-200 ${
+            className={`text-[var(--text-subtle)] transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
             }`}
           />
@@ -220,9 +220,9 @@ export function ExportDropdown({
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="export-dropdown-trigger"
-          className="absolute right-0 top-full mt-1.5 w-56 p-1.5 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl z-50 flex flex-col gap-0.5 animate-slide-down focus:outline-none"
+          className="absolute right-0 top-full mt-1.5 w-56 p-1.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-modal z-50 flex flex-col gap-0.5 animate-slide-down focus:outline-none text-[var(--text)]"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)] px-2 py-1">
             Export Document
           </div>
 
@@ -236,14 +236,14 @@ export function ExportDropdown({
             id="export-option-docx"
             onClick={() => executeExport('docx')}
             onKeyDown={(e) => handleMenuKeyDown(e, 0)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
+            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-[var(--text)] hover:bg-[var(--surface-hover)] focus:bg-[var(--surface-hover)] focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded bg-blue-950/60 border border-blue-800/60 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-5 h-5 rounded bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-500 shrink-0">
               <Icons.FileText size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-neutral-200">Word (.docx)</span>
-              <span className="text-[10px] text-neutral-500">Microsoft Word format</span>
+              <span className="font-semibold text-[var(--text)]">Word (.docx)</span>
+              <span className="text-[10px] text-[var(--text-subtle)]">Microsoft Word format</span>
             </div>
           </button>
 
@@ -257,14 +257,14 @@ export function ExportDropdown({
             id="export-option-pdf"
             onClick={() => executeExport('pdf')}
             onKeyDown={(e) => handleMenuKeyDown(e, 1)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
+            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-[var(--text)] hover:bg-[var(--surface-hover)] focus:bg-[var(--surface-hover)] focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded bg-rose-950/60 border border-rose-800/60 flex items-center justify-center text-rose-400 shrink-0">
+            <div className="w-5 h-5 rounded bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 shrink-0">
               <Icons.Document size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-neutral-200">PDF (.pdf)</span>
-              <span className="text-[10px] text-neutral-500">Printable document</span>
+              <span className="font-semibold text-[var(--text)]">PDF (.pdf)</span>
+              <span className="text-[10px] text-[var(--text-subtle)]">Printable document</span>
             </div>
           </button>
         </div>

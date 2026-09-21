@@ -19,7 +19,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
 }) => {
   return (
     <div
-      className="absolute z-50 flex items-center gap-1 p-1 bg-[#191919] text-[#ffffff] rounded-xl shadow-modal border border-neutral-800 text-xs select-none animate-slide-down"
+      className="absolute z-50 flex items-center gap-1 p-1 bg-[var(--surface)] text-[var(--text)] rounded-xl shadow-modal border border-[var(--border-strong)] text-xs select-none animate-slide-down"
       style={{
         top: position.top - 46,
         left: Math.max(16, position.left - 100),
@@ -30,7 +30,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <select
         value={currentBlockType}
         onChange={(e) => onConvertBlockType(e.target.value as BlockType)}
-        className="bg-neutral-800 text-neutral-200 text-[11px] font-medium rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-neutral-700 transition-colors"
+        className="bg-[var(--surface-muted)] text-[var(--text)] text-[11px] font-medium rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors"
       >
         <option value="paragraph">Text</option>
         <option value="heading1">H1 Heading</option>
@@ -44,13 +44,13 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
         <option value="code">Code</option>
       </select>
 
-      <div className="w-[1px] h-3.5 bg-neutral-700 mx-0.5" />
+      <div className="w-[1px] h-3.5 bg-[var(--border)] mx-0.5" />
 
       {/* Bold */}
       <button
         type="button"
         onClick={() => onFormat('bold')}
-        className="w-6 h-6 flex items-center justify-center font-bold text-xs rounded-md hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center font-bold text-xs rounded-md hover:bg-[var(--surface-hover)] text-[var(--text)] transition-colors active:scale-95"
         title="Bold (Cmd+B)"
       >
         B
@@ -60,7 +60,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('italic')}
-        className="w-6 h-6 flex items-center justify-center italic font-serif text-xs rounded-md hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center italic font-serif text-xs rounded-md hover:bg-[var(--surface-hover)] text-[var(--text)] transition-colors active:scale-95"
         title="Italic (Cmd+I)"
       >
         I
@@ -70,7 +70,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('underline')}
-        className="w-6 h-6 flex items-center justify-center underline text-xs rounded-md hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center underline text-xs rounded-md hover:bg-[var(--surface-hover)] text-[var(--text)] transition-colors active:scale-95"
         title="Underline (Cmd+U)"
       >
         U
@@ -80,7 +80,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('strikethrough')}
-        className="w-6 h-6 flex items-center justify-center line-through text-xs text-neutral-300 rounded-md hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center line-through text-xs rounded-md hover:bg-[var(--surface-hover)] text-[var(--text-muted)] transition-colors active:scale-95"
         title="Strikethrough"
       >
         S
@@ -90,7 +90,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
       <button
         type="button"
         onClick={() => onFormat('code')}
-        className="w-6 h-6 flex items-center justify-center font-mono text-[10px] rounded-md hover:bg-neutral-800 transition-colors"
+        className="w-6 h-6 flex items-center justify-center font-mono text-[10px] rounded-md hover:bg-[var(--surface-hover)] text-[var(--text)] transition-colors active:scale-95"
         title="Inline Code (`)"
       >
         <Icons.Code size={12} />

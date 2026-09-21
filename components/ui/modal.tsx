@@ -72,18 +72,18 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Panel */}
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-neutral-900 border border-neutral-800 rounded-2xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 z-10 animate-scale-up text-neutral-200`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 shadow-modal flex flex-col gap-4 z-10 animate-scale-up text-[var(--text)] transition-colors`}
       >
         {(title || description) && (
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1 text-left">
               {title && (
-                <h3 id={titleId} className="text-base font-bold tracking-tight text-neutral-100">
+                <h3 id={titleId} className="text-base font-bold tracking-tight text-[var(--text)]">
                   {title}
                 </h3>
               )}
               {description && (
-                <p id={descId} className="text-xs text-neutral-400 leading-relaxed">
+                <p id={descId} className="text-xs text-[var(--text-muted)] leading-relaxed">
                   {description}
                 </p>
               )}
@@ -94,7 +94,7 @@ export const Modal: React.FC<ModalProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-neutral-400 hover:text-neutral-200 -mt-1 -mr-1 shrink-0"
+              className="text-[var(--text-subtle)] hover:text-[var(--text)] -mt-1 -mr-1 shrink-0"
             >
               <Icons.X size={15} />
             </IconButton>

@@ -7,6 +7,7 @@ import { generateRoomId, setStoredUserName, getStoredUserName } from '../lib/roo
 import { Icons } from '../components/ui/icons';
 import { AuthCorner } from '../components/layout/AuthCorner';
 import { PreviousDocumentsSidebar } from '../components/layout/PreviousDocumentsSidebar';
+import { ThemeToggle } from '../components/ui/theme-toggle';
 
 export default function Home() {
   const router = useRouter();
@@ -57,9 +58,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] flex flex-col items-center justify-center p-4 selection:bg-neutral-800 selection:text-neutral-200 relative">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col items-center justify-center p-4 selection:bg-[var(--surface-hover)] selection:text-[var(--text)] relative transition-colors">
       {/* Top Left: Login Detail / Login Button */}
       <AuthCorner />
+
+      {/* Top Right: Theme Toggle */}
+      <div className="fixed top-4 right-4 z-30">
+        <ThemeToggle />
+      </div>
 
       {/* Bottom Right: Previous Documents Sidebar */}
       <PreviousDocumentsSidebar />
@@ -67,11 +73,11 @@ export default function Home() {
       <div className="w-full max-w-sm flex flex-col items-center gap-8 animate-fade-in">
         {/* Minimal branding */}
         <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-200">
+          <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shadow-xs">
             <Icons.Logo size={16} />
           </div>
-          <h1 className="text-xl font-medium tracking-tight text-neutral-200">Braid</h1>
-          <p className="text-xs text-neutral-500">Minimal real-time collaborative editor</p>
+          <h1 className="text-xl font-bold tracking-tight text-[var(--text)]">Braid</h1>
+          <p className="text-xs text-[var(--text-muted)]">Minimal real-time collaborative editor</p>
         </div>
 
         {/* Ultra-minimal direct name prompt */}
@@ -86,7 +92,7 @@ export default function Home() {
                 if (error) setError('');
               }}
               autoFocus
-              className="w-full px-4 py-2.5 rounded-lg bg-neutral-900/90 border border-neutral-800 text-sm text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-600 transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-sm text-[var(--text)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--border-strong)] focus:bg-[var(--surface)] transition-all shadow-2xs"
             />
           </div>
 
@@ -100,7 +106,7 @@ export default function Home() {
                   setJoinCode(e.target.value);
                   if (error) setError('');
                 }}
-                className="w-full px-4 py-2.5 rounded-lg bg-neutral-900/90 border border-neutral-800 text-sm font-mono text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-600 transition-colors"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-sm font-mono text-[var(--text)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--border-strong)] focus:bg-[var(--surface)] transition-all shadow-2xs"
               />
             </div>
           )}
@@ -109,7 +115,7 @@ export default function Home() {
 
           <button
             type="submit"
-            className="w-full py-2.5 rounded-lg bg-neutral-200 hover:bg-white text-neutral-950 text-xs font-medium transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1 shadow-xs"
           >
             <span>{isJoinMode ? 'Join Room' : 'Start Writing'}</span>
             <Icons.ArrowRight size={12} />
@@ -117,14 +123,14 @@ export default function Home() {
         </form>
 
         {/* Minimal Mode Toggle */}
-        <div className="flex items-center gap-3 text-xs text-neutral-500">
+        <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
           <button
             type="button"
             onClick={() => {
               setIsJoinMode(!isJoinMode);
               setError('');
             }}
-            className="hover:text-neutral-300 transition-colors cursor-pointer"
+            className="hover:text-[var(--text)] transition-colors cursor-pointer"
           >
             {isJoinMode ? '← Create a new room' : 'Have a room code? Join room'}
           </button>
