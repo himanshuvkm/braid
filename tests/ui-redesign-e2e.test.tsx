@@ -86,7 +86,7 @@ describe('Complete UI/UX Redesign Verification', () => {
     expect(html).toContain('Braid');
     expect(html).toContain('System Architecture and Design');
     expect(html).toContain('Saved');
-    expect(html).toContain('Share Link');
+    expect(html).toContain('Share');
     expect(html).toContain('Himanshu');
     expect(html).toContain('CRDT nodes');
   });

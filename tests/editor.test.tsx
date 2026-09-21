@@ -145,3 +145,25 @@ describe('Peer Presence and Collaborator Management in SyncClient', () => {
     expect(client.connectedPeers.length).toBe(0);
   });
 });
+
+describe('Mobile Header De-cluttering and Sidebar Menu', () => {
+  it('renders mobile menu trigger button, room ID, and theme toggle in mobile header', () => {
+    const html = renderToString(
+      <Editor
+        documentId="doc-mobile-clean"
+        userName="Himanshu"
+        siteId="site-mobile-1"
+      />
+    );
+
+    // Mobile header has sidebar menu button and room ID on left, theme toggle on right
+    expect(html).toContain('aria-label="Open document sidebar menu"');
+    expect(html).toContain('doc-mobile-clean');
+
+    // Desktop elements are tucked into hidden sm: classes
+    expect(html).toContain('hidden sm:flex');
+
+    // Previous documents trigger and main editor elements remain available
+    expect(html).toContain('Previous Documents');
+  });
+});

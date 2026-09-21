@@ -14,7 +14,7 @@ import { Dropdown } from '../../components/ui/dropdown';
 import { EmptyState } from '../../components/ui/empty-state';
 import { useToast } from '../../components/ui/toast';
 import { AppShell } from '../../components/layout/AppShell';
-import { CommandPalette } from '../../components/ui/command-palette';
+import { ShareModal } from '../../components/ui/share-modal';
 import type { DashboardFilter } from '../../components/layout/Sidebar';
 
 interface DashboardClientProps {
@@ -70,10 +70,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     return 'grid';
   });
   const [isCreating, setIsCreating] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
   // Modals state
+  const [shareProject, setShareProject] = useState<ProjectWithRole | null>(null);
   const [renameProject, setRenameProject] = useState<ProjectWithRole | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
@@ -169,6 +169,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     }
   };
 
+  const handleOpenShare = (project: ProjectWithRole, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setShareProject(project);
+  };
+
   const handleCopyLink = (projectId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (typeof window !== 'undefined' && navigator.clipboard) {
@@ -242,19 +247,13 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       const target = e.target as HTMLElement;
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
-        return;
-      }
-
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n' && !isInput) {
         e.preventDefault();
         handleCreateProject();
         return;
       }
 
-      if (!isInput && !isCommandPaletteOpen && !renameProject && !deleteProjectId) {
+      if (!isInput && !shareProject && !renameProject && !deleteProjectId) {
         if (e.key === 'j' || e.key === 'ArrowDown') {
           e.preventDefault();
           setHighlightedIndex((prev) => Math.min(prev + 1, sortedProjects.length - 1));
@@ -270,7 +269,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCreateProject, isCommandPaletteOpen, renameProject, deleteProjectId, highlightedIndex, sortedProjects, router]);
+  }, [handleCreateProject, shareProject, renameProject, deleteProjectId, highlightedIndex, sortedProjects, router]);
 
   // Counts for sidebar
   const counts = useMemo(() => {
@@ -309,31 +308,21 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       onSignOut={handleSignOut}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       pageTitle={pageTitle}
     >
-      <main className="p-4 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-6 sm:gap-7 flex-1">
+      <main className="p-3.5 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-5 sm:gap-7 flex-1">
         {/* Greeting Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text)]">
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-[var(--text)]">
               Welcome back, {user.name}
             </h1>
-            <p className="text-xs text-[var(--text-muted)] mt-1">
+            <p className="text-xs text-[var(--text-muted)] mt-0.5 sm:mt-1">
               {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setIsCommandPaletteOpen(true)}
-              leftIcon={<Icons.Command size={14} />}
-              className="hidden sm:inline-flex"
-            >
-              Command menu
-            </Button>
             <Button
               variant="primary"
               size="md"
@@ -553,10 +542,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                     {/* Quick Action Buttons */}
                     <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                       <IconButton
-                        aria-label="Copy share link"
+                        aria-label="Share document"
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => handleCopyLink(project.id, e)}
+                        onClick={(e) => handleOpenShare(project, e)}
                         className="text-[var(--text-subtle)] hover:text-[var(--text)]"
                       >
                         <Icons.Share size={13} />
@@ -687,10 +676,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                             onClick={(e) => e.stopPropagation()}
                           >
                             <IconButton
-                              aria-label="Copy share link"
+                              aria-label="Share document"
                               variant="ghost"
                               size="sm"
-                              onClick={(e) => handleCopyLink(project.id, e)}
+                              onClick={(e) => handleOpenShare(project, e)}
                               className="text-[var(--text-subtle)] hover:text-[var(--text)]"
                             >
                               <Icons.Share size={13} />
@@ -742,14 +731,12 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
         )}
       </main>
 
-      {/* Command Palette */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        projects={projects}
-        onCreateDocument={handleCreateProject}
-        onToggleViewMode={() => handleSetViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-        currentViewMode={viewMode}
+      {/* Share Document QR & Link Modal */}
+      <ShareModal
+        isOpen={Boolean(shareProject)}
+        onClose={() => setShareProject(null)}
+        documentId={shareProject?.id || ''}
+        documentTitle={shareProject?.name || ''}
       />
 
       {/* Standardized Rename Modal */}

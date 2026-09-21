@@ -136,7 +136,7 @@ export function PreviousDocumentsSidebar({
       <aside
         ref={drawerRef}
         aria-label="Previous documents sidebar"
-        className={`fixed top-0 right-0 h-screen w-80 sm:w-96 bg-[var(--surface)] border-l border-[var(--border)] shadow-modal z-50 flex flex-col justify-between transition-transform duration-300 ease-out select-none ${
+        className={`fixed top-0 right-0 h-screen w-[88vw] max-w-sm sm:w-96 bg-[var(--surface)] border-l border-[var(--border)] shadow-modal z-50 flex flex-col justify-between transition-transform duration-300 ease-out select-none ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         } ${className}`}
       >

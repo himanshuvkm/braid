@@ -18,7 +18,6 @@ export interface HeaderProps {
   isCreating?: boolean;
   onSignOut?: () => void;
   onToggleMobileSidebar?: () => void;
-  onOpenCommandPalette?: () => void;
   pageTitle?: string;
 }
 
@@ -30,13 +29,12 @@ export const Header: React.FC<HeaderProps> = ({
   isCreating = false,
   onSignOut,
   onToggleMobileSidebar,
-  onOpenCommandPalette,
   pageTitle,
 }) => {
   return (
-    <header className="h-14 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-30 transition-colors">
+    <header className="h-14 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-30 transition-colors">
       {/* Left: Mobile Menu Toggle & Title */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onToggleMobileSidebar && (
           <IconButton
             aria-label="Open sidebar menu"
@@ -59,34 +57,21 @@ export const Header: React.FC<HeaderProps> = ({
         {pageTitle && (
           <>
             <span className="hidden sm:inline text-[var(--text-subtle)] text-xs">/</span>
-            <span className="text-xs sm:text-sm font-semibold text-[var(--text)] truncate">
+            <span className="text-xs sm:text-sm font-semibold text-[var(--text)] truncate max-w-[120px] sm:max-w-xs">
               {pageTitle}
             </span>
           </>
         )}
       </div>
 
-      {/* Right: Search, Command Palette Pill, Theme Toggle, Create Action & User Dropdown */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {/* Command Palette Trigger Button */}
-        {onOpenCommandPalette ? (
-          <button
-            type="button"
-            onClick={onOpenCommandPalette}
-            className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-xs text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-strong)] transition-all cursor-pointer group"
-          >
-            <Icons.Search size={13} className="text-[var(--text-subtle)] group-hover:text-[var(--text)]" />
-            <span className="text-[11px] font-medium">Search or jump to...</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text-subtle)]">
-              ⌘K
-            </kbd>
-          </button>
-        ) : onSearchChange ? (
-          <div className="relative w-36 sm:w-56 md:w-64">
+      {/* Right: Search, Theme Toggle, Create Action & User Dropdown */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {onSearchChange ? (
+          <div className="relative w-28 xs:w-36 sm:w-56 md:w-64">
             <Icons.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] pointer-events-none" />
             <input
               type="text"
-              placeholder="Search documents..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-8 pr-7 py-1 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] focus:border-[var(--border-strong)] focus:bg-[var(--surface)] text-xs text-[var(--text)] placeholder-[var(--text-subtle)] outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]/20"
@@ -104,8 +89,10 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         ) : null}
 
-        {/* Theme Toggle Button */}
-        <ThemeToggle />
+        {/* Theme Toggle Button (desktop only - on mobile accessible via sidebar) */}
+        <div className="hidden sm:flex items-center">
+          <ThemeToggle />
+        </div>
 
         {/* Create Document Quick Button */}
         {onCreateDocument && (

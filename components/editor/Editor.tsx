@@ -14,7 +14,7 @@ import { Avatar } from '../ui/avatar';
 import { Modal } from '../ui/modal';
 import { Input } from '../ui/input';
 import { ThemeToggle } from '../ui/theme-toggle';
-import { CommandPalette } from '../ui/command-palette';
+import { ShareModal } from '../ui/share-modal';
 import { PreviousDocumentsSidebar } from '../layout/PreviousDocumentsSidebar';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
@@ -186,6 +186,7 @@ export const Editor: React.FC<EditorProps> = ({
   const [tombstoneCount, setTombstoneCount] = useState<number>(0);
   const [copyFeedback, setCopyFeedback] = useState<'id' | 'link' | null>(null);
   const [showPeersDropdown, setShowPeersDropdown] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const syncClientRef = useRef<SyncClient | null>(null);
@@ -444,6 +445,30 @@ export const Editor: React.FC<EditorProps> = ({
     setEnteredUserName(trimmed);
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Keyboard shortcut: Escape to close mobile menu
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isMobileMenuOpen]);
+
+  const totalCollaborators = peers.length + 1;
+  const lineCount = Math.max(1, text.split('\n').length);
+  const wordCount = useMemo(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  }, [text]);
+  const readingTimeMins = useMemo(() => {
+    return Math.max(1, Math.ceil(wordCount / 200));
+  }, [wordCount]);
+
   // If user is not yet joined (direct room URL without prior identity), show Join Room gate
   if (!isJoined) {
     return (
@@ -511,37 +536,29 @@ export const Editor: React.FC<EditorProps> = ({
     );
   }
 
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-
-  // Keyboard shortcut: Cmd+K to open Command Palette
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
-
-  const totalCollaborators = peers.length + 1;
-  const lineCount = Math.max(1, text.split('\n').length);
-  const wordCount = useMemo(() => {
-    const trimmed = text.trim();
-    if (!trimmed) return 0;
-    return trimmed.split(/\s+/).length;
-  }, [text]);
-  const readingTimeMins = useMemo(() => {
-    return Math.max(1, Math.ceil(wordCount / 200));
-  }, [wordCount]);
-
   return (
     <div className="flex flex-col min-h-screen w-full bg-[var(--background)] text-[var(--text)] selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors">
       {/* Top Workspace Navigation Bar */}
-      <header className="sticky top-0 z-30 px-4 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md select-none transition-colors">
-        {/* Left: Branding, Room Name & Room ID, Auth Details */}
-        <div className="flex items-center gap-2.5 min-w-0">
+      <header className="sticky top-0 z-30 px-3 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md select-none transition-colors gap-2 sm:gap-3">
+        {/* Mobile Left: Sidebar opening button + Room ID */}
+        <div className="flex sm:hidden items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Open document sidebar menu"
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text)] transition-colors cursor-pointer active:scale-95 shrink-0"
+            title="Open Document Sidebar"
+          >
+            <Icons.Menu size={16} />
+          </button>
+
+          <span className="font-semibold text-xs text-[var(--text)] font-mono truncate max-w-[160px]">
+            {documentId}
+          </span>
+        </div>
+
+        {/* Desktop Left: Branding, Room Name & Room ID, Auth Details */}
+        <div className="hidden sm:flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
             className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0"
@@ -555,8 +572,8 @@ export const Editor: React.FC<EditorProps> = ({
 
           <span className="text-[var(--text-subtle)] text-xs">/</span>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="font-medium text-xs sm:text-sm text-[var(--text)] font-mono truncate max-w-[130px] sm:max-w-xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-medium text-sm text-[var(--text)] font-mono truncate max-w-xs">
               {roomName}
             </span>
             <button
@@ -606,13 +623,13 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
         </div>
 
-        {/* Center: Clean Mode Switcher (Text vs Code) */}
-        <div className="flex items-center gap-2">
+        {/* Center: Desktop Segmented Mode Switcher */}
+        <div className="hidden sm:flex items-center gap-2">
           <div className="flex items-center rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] p-0.5 text-xs font-medium">
             <button
               type="button"
               onClick={() => setMode('text')}
-              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
                 mode === 'text'
                   ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
                   : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
@@ -623,7 +640,7 @@ export const Editor: React.FC<EditorProps> = ({
             <button
               type="button"
               onClick={() => setMode('code')}
-              className={`px-3 py-1 rounded-md font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md font-mono transition-all cursor-pointer flex items-center gap-1 ${
                 mode === 'code'
                   ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
                   : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
@@ -633,7 +650,7 @@ export const Editor: React.FC<EditorProps> = ({
             </button>
           </div>
 
-          {/* Language Selector when in Code mode */}
+          {/* Language Selector when in Code mode on desktop */}
           {mode === 'code' && (
             <select
               value={codeLanguage}
@@ -649,24 +666,39 @@ export const Editor: React.FC<EditorProps> = ({
           )}
         </div>
 
-        {/* Right: Theme Toggle, Autosave Status, Collaborators & Actions */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Command Palette Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsCommandPaletteOpen(true)}
-            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors"
-            title="Command Palette (⌘K)"
-          >
-            <Icons.Command size={12} />
-            <span className="font-mono text-[10px]">⌘K</span>
-          </button>
+        {/* Mobile Right: Theme Toggler */}
+        <div className="flex sm:hidden items-center shrink-0">
+          <ThemeToggle />
+        </div>
 
+        {/* Desktop Right: Tools & Actions */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           {/* Theme Toggle */}
           <ThemeToggle />
 
           {/* Status Pill */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] font-mono">
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] font-mono"
+            title={
+              saveStatus === 'saving'
+                ? 'Saving...'
+                : saveStatus === 'offline'
+                ? 'Offline'
+                : saveStatus === 'error'
+                ? 'Save failed'
+                : saveStatus === 'saved'
+                ? 'Saved'
+                : connectionStatus === 'connected'
+                ? 'Synced'
+                : connectionStatus === 'connecting'
+                ? 'Connecting...'
+                : connectionStatus === 'reconnecting'
+                ? 'Reconnecting...'
+                : connectionStatus === 'error'
+                ? 'Sync Error'
+                : 'Offline'
+            }
+          >
             <span
               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 saveStatus === 'saved' || (!saveStatus && connectionStatus === 'connected')
@@ -713,7 +745,7 @@ export const Editor: React.FC<EditorProps> = ({
 
             {/* Collaborators Dropdown Menu */}
             {showPeersDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 p-2 rounded-2xl bg-[var(--surface)] border border-[var(--border-strong)] shadow-modal z-40 flex flex-col gap-1 text-xs text-[var(--text)] animate-slide-down">
+              <div className="absolute right-0 top-full mt-1.5 w-56 max-w-[calc(100vw-1.5rem)] p-2 rounded-2xl bg-[var(--surface)] border border-[var(--border-strong)] shadow-modal z-40 flex flex-col gap-1 text-xs text-[var(--text)] animate-slide-down">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)] px-2 py-1">
                   Active in Room ({totalCollaborators})
                 </div>
@@ -787,15 +819,15 @@ export const Editor: React.FC<EditorProps> = ({
             size="sm"
           />
 
-          {/* Share Link Button */}
+          {/* Share Room Button (Opens QR Code & Direct Link Modal) */}
           <button
             type="button"
-            onClick={handleCopyLink}
-            className="text-xs font-medium px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text)] transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95"
-            title="Share Link"
+            onClick={() => setIsShareModalOpen(true)}
+            className="text-xs font-medium px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text)] transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+            title="Share Room (QR Code & Direct Link)"
           >
             <Icons.Share size={11} />
-            <span>{copyFeedback === 'link' ? 'Copied!' : 'Share'}</span>
+            <span>Share</span>
           </button>
         </div>
       </header>
@@ -853,7 +885,7 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Main Full-Screen Unified Editor Canvas */}
       <div className="flex-1 flex flex-col w-full relative">
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-3 min-h-[calc(100vh-6.5rem)]">
+        <main className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-8 py-4 sm:py-10 flex flex-col gap-3 min-h-[calc(100vh-6.5rem)]">
           {/* Active Mode Header Details */}
           <div className="flex items-center justify-between pb-2 border-b border-[var(--border)] select-none text-xs">
             <div className="flex items-center gap-2">
@@ -867,7 +899,7 @@ export const Editor: React.FC<EditorProps> = ({
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] text-[11px] font-mono text-[var(--text)] border border-[var(--border)] transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] text-[11px] font-mono text-[var(--text)] border border-[var(--border)] transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
               >
                 <span>{copiedCode ? '✓ Copied' : 'Copy All Code'}</span>
               </button>
@@ -875,10 +907,10 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Unified Editor Surface */}
-          <div className="flex-1 flex items-start gap-3 w-full">
+          <div className="flex-1 flex items-start gap-2 sm:gap-3 w-full">
             {/* Line numbers gutter in Code mode */}
             {mode === 'code' && (
-              <div className="flex flex-col text-right font-mono text-xs text-[var(--text-subtle)] select-none py-2 pr-2 border-r border-[var(--border)] min-w-[2.5rem]">
+              <div className="flex flex-col text-right font-mono text-[11px] sm:text-xs text-[var(--text-subtle)] select-none py-2 pr-1.5 sm:pr-2 border-r border-[var(--border)] min-w-[1.75rem] sm:min-w-[2.5rem]">
                 {Array.from({ length: lineCount }).map((_, i) => (
                   <div key={i} className="leading-6">
                     {i + 1}
@@ -911,17 +943,17 @@ export const Editor: React.FC<EditorProps> = ({
       </div>
 
       {/* Floating Minimal Bottom Diagnostics & Reading Stats Pill */}
-      <footer className="sticky bottom-0 z-20 px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md text-[11px] text-[var(--text-subtle)] font-mono select-none flex items-center justify-between transition-colors">
-        <div className="flex items-center gap-2">
+      <footer className="sticky bottom-0 z-20 px-3 sm:px-6 py-1.5 sm:py-2 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md text-[10px] sm:text-[11px] text-[var(--text-subtle)] font-mono select-none flex items-center justify-between transition-colors gap-2 overflow-x-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <span>{wordCount} words</span>
           <span>•</span>
-          <span>{text.length} chars</span>
-          <span>•</span>
-          <span>~{readingTimeMins} min read</span>
+          <span className="hidden xs:inline">{text.length} chars</span>
+          <span className="hidden xs:inline">•</span>
+          <span>~{readingTimeMins}m read</span>
           <span>•</span>
           <span>{lineCount} lines</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2 shrink-0">
           <span>{rga.getNodes().length} CRDT nodes</span>
           <span>•</span>
           <span>{tombstoneCount} tombstones</span>
@@ -929,12 +961,6 @@ export const Editor: React.FC<EditorProps> = ({
           <span>Site: {siteId || 'init'}</span>
         </div>
       </footer>
-
-      {/* Command Palette */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-      />
 
       {/* Edit Display Name Modal */}
       <Modal
@@ -977,8 +1003,324 @@ export const Editor: React.FC<EditorProps> = ({
         </form>
       </Modal>
 
+      {/* Mobile Header Sidebar / Drawer */}
+      {isMobileMenuOpen && (
+        <>
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 animate-fade-in transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Slide-over Drawer Panel to the Left */}
+          <aside
+            className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-xs bg-[var(--surface)] border-r border-[var(--border)] shadow-2xl z-50 flex flex-col animate-slide-in-left select-none text-[var(--text)] transition-colors overflow-hidden"
+            role="dialog"
+            aria-label="Document Sidebar Menu"
+            aria-modal="true"
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface-muted)]/50">
+              <Link
+                href="/"
+                className="flex items-center gap-2 min-w-0"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <div className="w-5 h-5 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center">
+                  <Icons.Logo size={12} />
+                </div>
+                <span className="font-semibold text-xs tracking-tight text-[var(--text)] truncate">
+                  Braid Menu
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors cursor-pointer"
+                aria-label="Close menu"
+              >
+                <Icons.X size={16} />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 divide-y divide-[var(--border)]">
+              {/* Section 0: Mode & Language Selection */}
+              <div className="flex flex-col gap-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Editor Mode &amp; Syntax
+                </div>
+                <div className="p-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex flex-col gap-2.5">
+                  <div className="grid grid-cols-2 gap-1 bg-[var(--surface)] p-1 rounded-lg border border-[var(--border)] text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setMode('text')}
+                      className={`py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        mode === 'text'
+                          ? 'bg-[var(--surface-hover)] text-[var(--text)] font-semibold shadow-2xs'
+                          : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <span className="font-serif font-bold text-xs">T</span>
+                      <span>Plain Text</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode('code')}
+                      className={`py-1.5 rounded-md font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        mode === 'code'
+                          ? 'bg-[var(--surface-hover)] text-[var(--text)] font-semibold shadow-2xs'
+                          : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <span className="text-[var(--accent)] font-bold text-xs">&lt;/&gt;</span>
+                      <span>Code</span>
+                    </button>
+                  </div>
+
+                  {mode === 'code' && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-mono text-[var(--text-subtle)]">Code Language</label>
+                      <select
+                        value={codeLanguage}
+                        onChange={(e) => setCodeLanguage(e.target.value)}
+                        className="w-full bg-[var(--surface)] text-[var(--text)] text-xs font-mono rounded-lg px-2.5 py-1.5 border border-[var(--border)] outline-none hover:border-[var(--border-strong)] cursor-pointer transition-colors"
+                      >
+                        {CODE_LANGUAGES.map((lang) => (
+                          <option key={lang.value} value={lang.value} className="bg-[var(--surface)] text-[var(--text)]">
+                            {lang.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 1: Document Details & Sharing */}
+              <div className="flex flex-col gap-2.5 pt-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Document
+                </div>
+                <div className="p-3 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-xs text-[var(--text)] font-mono truncate">
+                      {roomName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyId}
+                      className="px-2 py-0.5 rounded-md bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                      title="Copy Document ID"
+                    >
+                      <span>{documentId}</span>
+                      {copyFeedback === 'id' ? <Icons.Check size={10} className="text-emerald-400" /> : <Icons.Copy size={10} />}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsShareModalOpen(true);
+                    }}
+                    className="w-full mt-1 py-1.5 px-3 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Icons.QrCode size={13} />
+                    <span>Share Room &amp; QR Code</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 2: User Identity & Account */}
+              <div className="flex flex-col gap-2.5 pt-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Your Identity
+                </div>
+                <div className="p-3 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
+                        style={{ backgroundColor: userColor }}
+                      >
+                        {activeUserName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium text-[var(--text)] truncate">{activeUserName}</span>
+                        <span className="text-[10px] font-mono text-[var(--text-subtle)]">Site: {siteId}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleOpenEditName();
+                      }}
+                      className="px-2 py-1 rounded-lg text-[11px] font-medium text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <Icons.Edit size={11} />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+
+                  {userId && !userId.startsWith('guest-') ? (
+                    <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between text-xs">
+                      <Link
+                        href="/dashboard"
+                        className="text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors flex items-center gap-1"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Icons.Folder size={12} />
+                        <span>Dashboard</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch('/api/auth/logout', { method: 'POST' });
+                          window.location.reload();
+                        }}
+                        className="text-xs font-medium text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <Icons.LogOut size={12} />
+                        <span>Log Out</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-[var(--border)]">
+                      <Link
+                        href={`/login?from=/${encodeURIComponent(documentId)}`}
+                        className="w-full py-1.5 px-3 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text)] text-xs font-medium transition-all flex items-center justify-center gap-1.5"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Icons.LogIn size={12} />
+                        <span>Log In / Sign Up</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 3: Collaborators & Sync Status */}
+              <div className="flex flex-col gap-2.5 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                    Collaborators ({totalCollaborators})
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                      saveStatus === 'saved' || (!saveStatus && connectionStatus === 'connected')
+                        ? 'text-emerald-500 bg-emerald-500/10'
+                        : saveStatus === 'saving' || connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
+                        ? 'text-amber-500 bg-amber-500/10'
+                        : 'text-rose-500 bg-rose-500/10'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    <span>
+                      {connectionStatus === 'connected' ? 'Synced' : connectionStatus === 'connecting' ? 'Connecting' : connectionStatus === 'reconnecting' ? 'Reconnecting' : 'Offline'}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto">
+                  {/* Current User */}
+                  <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[var(--surface-muted)]">
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
+                      style={{ backgroundColor: userColor }}
+                    >
+                      {activeUserName.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-medium truncate text-[var(--text)]">{activeUserName} (you)</span>
+                  </div>
+
+                  {/* Remote Peers */}
+                  {peers.map((peer) => (
+                    <div key={peer.siteId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[var(--surface-muted)]">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-black shrink-0"
+                        style={{ backgroundColor: peer.color || '#F5C6B0' }}
+                      >
+                        {(peer.name || peer.siteId).slice(0, 1).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-medium truncate text-[var(--text)]">{peer.name || peer.siteId}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 4: Export & Actions */}
+              <div className="flex flex-col gap-2.5 pt-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Actions &amp; Export
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="w-full">
+                    <ExportDropdown
+                      projectId={documentId}
+                      documentTitle={roomName}
+                      getContent={() => rgaRef.current.getText()}
+                      onFlushSave={onFlushSave}
+                      size="md"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Appearance */}
+              <div className="flex flex-col gap-2.5 pt-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Appearance
+                </div>
+                <div className="p-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--text)]">Color Theme</span>
+                  <ThemeToggle variant="segmented" />
+                </div>
+              </div>
+
+              {/* Section 6: Document Stats */}
+              <div className="flex flex-col gap-2 pt-3 pb-2 text-[10px] font-mono text-[var(--text-subtle)]">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+                  Statistics
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="p-2 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)]">
+                    <div className="text-[9px] uppercase">Words</div>
+                    <div className="text-xs font-semibold text-[var(--text)]">{wordCount}</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)]">
+                    <div className="text-[9px] uppercase">Reading Time</div>
+                    <div className="text-xs font-semibold text-[var(--text)]">~{readingTimeMins} min</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)]">
+                    <div className="text-[9px] uppercase">Lines</div>
+                    <div className="text-xs font-semibold text-[var(--text)]">{lineCount}</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)]">
+                    <div className="text-[9px] uppercase">CRDT Nodes</div>
+                    <div className="text-xs font-semibold text-[var(--text)]">{rga.getNodes().length}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
       {/* Floating Previous Documents Sidebar in Bottom-Right Corner */}
       <PreviousDocumentsSidebar />
+
+      {/* Share Room QR Code & Link Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        documentId={documentId}
+        documentTitle={roomName}
+      />
     </div>
   );
 };

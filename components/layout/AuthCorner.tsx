@@ -56,7 +56,7 @@ export function AuthCorner({ initialUser, className = '', onLogoutSuccess }: Aut
 
 
   return (
-    <div className={`fixed top-4 left-4 z-30 flex items-center gap-2 ${className}`}>
+    <div className={`fixed top-3 left-3 sm:top-4 sm:left-4 z-30 flex items-center gap-2 ${className}`}>
       {user ? (
         /* Logged In View */
         <div className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-[var(--surface)]/90 backdrop-blur-md border border-[var(--border)] shadow-xs animate-fade-in text-xs">

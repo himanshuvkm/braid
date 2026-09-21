@@ -25,7 +25,6 @@ export interface SidebarProps {
   onSignOut: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
-  onOpenCommandPalette?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,7 +37,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSignOut,
   isOpenMobile = false,
   onCloseMobile,
-  onOpenCommandPalette,
 }) => {
   return (
     <>
@@ -105,23 +103,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ⌘N
               </span>
             </button>
-
-            {onOpenCommandPalette && (
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenCommandPalette();
-                  onCloseMobile?.();
-                }}
-                className="w-full h-8 px-3 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] text-xs font-medium transition-all flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <Icons.Search size={13} className="text-[var(--text-subtle)]" />
-                  <span>Command menu</span>
-                </div>
-                <span className="text-[10px] text-[var(--text-subtle)] font-mono">⌘K</span>
-              </button>
-            )}
           </div>
 
           {/* Navigation Links */}

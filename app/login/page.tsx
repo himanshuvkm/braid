@@ -129,23 +129,23 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors relative">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-3.5 sm:p-6 selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors relative">
       {/* Top Right Theme Toggle */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-7 sm:p-9 shadow-modal flex flex-col gap-6 animate-fade-in transition-colors">
+      <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl sm:rounded-3xl p-5 sm:p-9 shadow-modal flex flex-col gap-5 sm:gap-6 animate-fade-in transition-colors">
         {/* Brand & Heading */}
-        <div className="flex flex-col items-center text-center gap-2">
-          <Link href="/" className="inline-flex items-center gap-2 mb-2 hover:opacity-85 transition-opacity">
+        <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
+          <Link href="/" className="inline-flex items-center gap-2 mb-1 sm:mb-2 hover:opacity-85 transition-opacity">
             <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs">
               <Icons.Logo size={18} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-[var(--text)]">Braid</span>
+            <span className="font-bold text-lg sm:text-xl tracking-tight text-[var(--text)]">Braid</span>
           </Link>
 
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
             {tab === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
           <p className="text-xs text-[var(--text-muted)] leading-relaxed">

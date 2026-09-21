@@ -20,7 +20,6 @@ export interface AppShellProps {
   onSignOut: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  onOpenCommandPalette?: () => void;
   pageTitle?: string;
   children: React.ReactNode;
 }
@@ -35,7 +34,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onSignOut,
   searchQuery,
   onSearchChange,
-  onOpenCommandPalette,
   pageTitle,
   children,
 }) => {
@@ -54,7 +52,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         onSignOut={onSignOut}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
-        onOpenCommandPalette={onOpenCommandPalette}
       />
 
       {/* Main Content Area */}
@@ -68,7 +65,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           isCreating={isCreating}
           onSignOut={onSignOut}
           onToggleMobileSidebar={() => setMobileSidebarOpen(true)}
-          onOpenCommandPalette={onOpenCommandPalette}
         />
 
         <div className="flex-1 flex flex-col min-w-0">

@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { ThemeProvider } from '../components/ui/theme-provider';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-import { CommandPalette } from '../components/ui/command-palette';
 import { SlashMenu, SLASH_MENU_ITEMS } from '../components/editor/SlashMenu';
 import { BlockItem } from '../components/editor/BlockItem';
 import { FormatToolbar } from '../components/editor/FormatToolbar';
@@ -40,64 +39,6 @@ describe('Interactive Minimal UI & Theme System', () => {
       expect(html).toContain('Light');
       expect(html).toContain('Dark');
       expect(html).toContain('Auto');
-    });
-  });
-
-  describe('CommandPalette Modal & Actions', () => {
-    const mockProjects = [
-      {
-        id: 'proj-1',
-        name: 'Architecture Roadmap',
-        content: 'System architecture design details',
-        owner_id: 'user-1',
-        owner_name: 'Alice',
-        owner_email: 'alice@example.com',
-        created_at: 1000,
-        updated_at: 2000,
-        role: 'OWNER' as const,
-      },
-      {
-        id: 'proj-2',
-        name: 'Sprint Planning',
-        content: 'Task breakdown',
-        owner_id: 'user-2',
-        owner_name: 'Bob',
-        owner_email: 'bob@example.com',
-        created_at: 1000,
-        updated_at: 2000,
-        role: 'EDITOR' as const,
-      },
-    ];
-
-    it('does not render markup when isOpen is false', () => {
-      const html = renderToString(
-        <ThemeProvider>
-          <CommandPalette isOpen={false} onClose={() => {}} />
-        </ThemeProvider>
-      );
-      expect(html).toBe('');
-    });
-
-    it('renders search input, categorized documents, and action items when open', () => {
-      const html = renderToString(
-        <ThemeProvider>
-          <CommandPalette
-            isOpen={true}
-            onClose={() => {}}
-            projects={mockProjects}
-            onCreateDocument={() => {}}
-            currentViewMode="grid"
-            onToggleViewMode={() => {}}
-          />
-        </ThemeProvider>
-      );
-
-      expect(html).toContain('Type a command or search documents...');
-      expect(html).toContain('Architecture Roadmap');
-      expect(html).toContain('Sprint Planning');
-      expect(html).toContain('Create New Document');
-      expect(html).toContain('Switch to List View');
-      expect(html).toContain('Toggle Theme');
     });
   });
 

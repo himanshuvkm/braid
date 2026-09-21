@@ -62,7 +62,7 @@ export const Modal: React.FC<ModalProps> = ({
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
       aria-describedby={description ? descId : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fade-in"
     >
       {/* Backdrop */}
       <div
@@ -72,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Panel */}
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 shadow-modal flex flex-col gap-4 z-10 animate-scale-up text-[var(--text)] transition-colors`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-modal flex flex-col gap-4 z-10 animate-scale-up text-[var(--text)] transition-colors max-h-[92vh] overflow-y-auto`}
       >
         {(title || description) && (
           <div className="flex items-start justify-between gap-4">
