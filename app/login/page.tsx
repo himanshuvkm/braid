@@ -17,7 +17,7 @@ function LoginForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get('error') || null);
   const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -85,47 +85,10 @@ function LoginForm() {
     }
   };
 
-  const handleSocialAuth = async (provider: 'google' | 'github') => {
+  const handleSocialAuth = (provider: 'google' | 'github') => {
     setError(null);
     setSocialLoading(provider);
-    try {
-      const providerEmail = provider === 'google' ? 'user.google@braid.app' : 'user.github@braid.app';
-      const providerName = provider === 'google' ? 'Google User' : 'GitHub User';
-
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: providerEmail,
-          password: 'oauth-social-login-token',
-        }),
-      });
-
-      if (!res.ok) {
-        const regRes = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: providerName,
-            email: providerEmail,
-            password: 'oauth-social-login-token',
-          }),
-        });
-        if (!regRes.ok) {
-          const regData = await regRes.json();
-          throw new Error(regData.error || `${provider} authentication failed`);
-        }
-      }
-
-      startTransition(() => {
-        router.push(from);
-        router.refresh();
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : `${provider} login failed`);
-    } finally {
-      setSocialLoading(null);
-    }
+    window.location.href = `/api/auth/oauth/${provider}?from=${encodeURIComponent(from)}`;
   };
 
   return (
