@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, ProjectWithRole } from '../../lib/db';
+import { DOCUMENT_TEMPLATES, type TemplateItem } from '../../lib/templates';
 import { Icons } from '../../components/ui/icons';
 import { Button } from '../../components/ui/button';
 import { IconButton } from '../../components/ui/icon-button';
@@ -96,25 +97,31 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     }
   };
 
-  const handleCreateProject = useCallback(async () => {
-    setIsCreating(true);
-    try {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Untitled Document' }),
-      });
+  const handleCreateProject = useCallback(
+    async (template?: TemplateItem) => {
+      setIsCreating(true);
+      try {
+        const name = template ? template.title : 'Untitled Document';
+        const content = template ? template.content : undefined;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create document');
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, content }),
+        });
 
-      toast('Document created');
-      router.push(`/${data.project.id}`);
-    } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Create failed', 'error');
-      setIsCreating(false);
-    }
-  }, [router, toast]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to create document');
+
+        toast('Document created');
+        router.push(`/${data.project.id}`);
+      } catch (err: unknown) {
+        toast(err instanceof Error ? err.message : 'Create failed', 'error');
+        setIsCreating(false);
+      }
+    },
+    [router, toast]
+  );
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,15 +181,6 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     setShareProject(project);
   };
 
-  const handleCopyLink = (projectId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (typeof window !== 'undefined' && navigator.clipboard) {
-      const url = `${window.location.origin}/project/${projectId}`;
-      navigator.clipboard.writeText(url);
-      toast('Share link copied to clipboard');
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     if (!deleteProjectId) return;
     setIsDeleting(true);
@@ -240,10 +238,9 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
     return list;
   }, [filteredProjects, sortBy]);
 
-  // Global keyboard shortcuts: Cmd+K for command palette, Cmd+N for new doc, j/k to navigate list
+  // Global keyboard shortcuts: Cmd+N for new doc, j/k to navigate list
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if typing in an input or modal is open
       const target = e.target as HTMLElement;
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
@@ -289,7 +286,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       ? 'My Documents'
       : activeFilter === 'shared'
       ? 'Shared with me'
-      : 'Recent Documents';
+      : 'Recent';
 
   const sortLabels: Record<SortOption, string> = {
     updated: 'Recently updated',
@@ -303,35 +300,80 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       activeFilter={activeFilter}
       onFilterChange={setActiveFilter}
       counts={counts}
-      onCreateDocument={handleCreateProject}
+      onCreateDocument={() => handleCreateProject()}
       isCreating={isCreating}
       onSignOut={handleSignOut}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       pageTitle={pageTitle}
     >
-      <main className="p-3.5 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-5 sm:gap-7 flex-1">
-        {/* Greeting Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-[var(--text)]">
-              Welcome back, {user.name}
-            </h1>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5 sm:mt-1">
-              {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
-            </p>
+      <main className="p-4 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-6 sm:gap-8 flex-1">
+        {/* Obsidian Studio Greeting & Workspace Summary Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-2xl glass-card border border-[var(--border)] shadow-lg relative overflow-hidden">
+          <div className="flex items-center gap-4 z-10">
+            <Avatar name={user.name} size="lg" className="ring-2 ring-[var(--accent)]/40 shrink-0" />
+            <div className="flex flex-col gap-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
+                Welcome back, {user.name}
+              </h1>
+              <p className="text-xs text-[var(--text-muted)]">
+                {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto z-10">
             <Button
               variant="primary"
               size="md"
-              onClick={handleCreateProject}
+              onClick={() => handleCreateProject()}
               isLoading={isCreating}
               leftIcon={<Icons.Plus size={14} />}
+              className="glow-accent"
             >
               New document
             </Button>
+          </div>
+        </div>
+
+        {/* Starter Templates Quick-Launch Strip */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-subtle)]">
+              Quick Start Templates
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {DOCUMENT_TEMPLATES.map((tmpl) => (
+              <button
+                key={tmpl.id}
+                type="button"
+                onClick={() => handleCreateProject(tmpl)}
+                disabled={isCreating}
+                className="glass-card p-4 rounded-xl text-left flex flex-col gap-2 border border-[var(--border)] hover:border-[var(--accent)] transition-all cursor-pointer group hover:-translate-y-0.5"
+              >
+                <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] group-hover:scale-105 group-hover:bg-[var(--accent-subtle)] group-hover:text-[var(--accent)] transition-all">
+                  {tmpl.id === 'code' ? (
+                    <Icons.Code size={14} />
+                  ) : tmpl.id === 'rfc' ? (
+                    <Icons.Cpu size={14} />
+                  ) : tmpl.id === 'meeting' ? (
+                    <Icons.Users size={14} />
+                  ) : (
+                    <Icons.Document size={14} />
+                  )}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-semibold text-xs text-[var(--text)] group-hover:text-[var(--accent)] truncate transition-colors">
+                    {tmpl.title}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-subtle)] line-clamp-1 mt-0.5">
+                    {tmpl.description}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -469,7 +511,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                 <Button
                   variant="primary"
                   size="md"
-                  onClick={handleCreateProject}
+                  onClick={() => handleCreateProject()}
                   isLoading={isCreating}
                   leftIcon={<Icons.Plus size={14} />}
                 >
@@ -479,7 +521,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             />
           )
         ) : viewMode === 'grid' ? (
-          /* Grid View with smooth card lift */
+          /* Grid View with Obsidian Studio glass cards */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 animate-fade-in">
             {sortedProjects.map((project, idx) => {
               const isHighlighted = idx === highlightedIndex;
@@ -488,16 +530,16 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                   key={project.id}
                   onClick={() => router.push(`/${project.id}`)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`group relative bg-[var(--surface)] border rounded-2xl p-5 shadow-card hover:shadow-modal transition-all flex flex-col justify-between gap-4 cursor-pointer select-none hover:-translate-y-0.5 ${
+                  className={`group relative glass-card rounded-2xl p-5 shadow-card hover:shadow-2xl transition-all flex flex-col justify-between gap-4 cursor-pointer select-none hover:-translate-y-1 ${
                     isHighlighted
                       ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]'
-                      : 'border-[var(--border)] hover:border-[var(--border-strong)]'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/50'
                   }`}
                 >
                   {/* Card Top */}
                   <div className="flex flex-col gap-2.5">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 group-hover:text-[var(--accent)] transition-all">
                         <Icons.Document size={15} />
                       </div>
 
@@ -593,7 +635,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
           </div>
         ) : (
           /* List View */
-          <div className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-card overflow-hidden animate-fade-in">
+          <div className="w-full glass-card border border-[var(--border)] rounded-2xl shadow-card overflow-hidden animate-fade-in">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -620,7 +662,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                         {/* Name & Preview */}
                         <td className="py-3.5 px-4 min-w-[200px]">
                           <div className="flex items-center gap-3">
-                            <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 transition-transform">
+                            <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] shrink-0 group-hover:scale-105 group-hover:text-[var(--accent)] transition-all">
                               <Icons.Document size={14} />
                             </div>
                             <div className="flex flex-col min-w-0">
