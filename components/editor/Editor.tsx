@@ -369,6 +369,19 @@ export const Editor: React.FC<EditorProps> = ({
     [siteId, isJoined, isReadOnly]
   );
 
+  // Apply starter template if stored in sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+      try {
+        const storedTemplate = sessionStorage.getItem(`braid:template:${documentId}`);
+        if (storedTemplate && (!initialContent || initialContent.trim() === '')) {
+          sessionStorage.removeItem(`braid:template:${documentId}`);
+          applyTextChange(storedTemplate);
+        }
+      } catch {}
+    }
+  }, [documentId, initialContent, applyTextChange]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Tab key support for indentation in Code Mode
     if (e.key === 'Tab') {
