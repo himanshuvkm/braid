@@ -129,18 +129,18 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-3.5 sm:p-6 selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors relative">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-3.5 sm:p-6 selection:bg-[var(--accent-subtle)] selection:text-[var(--accent)] transition-colors relative mesh-bg">
       {/* Top Right Theme Toggle */}
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl sm:rounded-3xl p-5 sm:p-9 shadow-modal flex flex-col gap-5 sm:gap-6 animate-fade-in transition-colors">
+      <div className="w-full max-w-md rounded-2xl sm:rounded-3xl p-6 sm:p-9 glass-card shadow-2xl border border-[var(--border)] flex flex-col gap-5 sm:gap-6 animate-fade-in transition-colors">
         {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-1 sm:mb-2 hover:opacity-85 transition-opacity">
-            <div className="w-8 h-8 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs">
-              <Icons.Logo size={18} />
+            <div className="w-9 h-9 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs">
+              <Icons.Logo size={20} />
             </div>
             <span className="font-bold text-lg sm:text-xl tracking-tight text-[var(--text)]">Braid</span>
           </Link>
@@ -161,7 +161,7 @@ function LoginForm() {
             type="button"
             onClick={() => handleSocialAuth('google')}
             disabled={socialLoading !== null || isPending}
-            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--border-strong)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
           >
             {socialLoading === 'google' ? (
               <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
@@ -175,7 +175,7 @@ function LoginForm() {
             type="button"
             onClick={() => handleSocialAuth('github')}
             disabled={socialLoading !== null || isPending}
-            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--border-strong)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
           >
             {socialLoading === 'github' ? (
               <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
@@ -247,7 +247,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={isPending || socialLoading !== null}
-            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1 disabled:opacity-50 shadow-xs"
+            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1 disabled:opacity-50 shadow-md glow-accent"
           >
             {isPending && <Icons.Spinner size={14} className="animate-spin" />}
             <span>{tab === 'signin' ? 'Sign In' : 'Sign Up'}</span>
