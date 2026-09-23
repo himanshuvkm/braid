@@ -114,7 +114,7 @@ export function ProjectEditor({ project, user, role = 'OWNER', initialWsToken }:
       userName={user.name}
       userId={user.id}
       wsToken={initialWsToken}
-      isReadOnly={false}
+      isReadOnly={role === 'VIEWER'}
       initialContent={project.content}
       onContentChange={handleContentChange}
       saveStatus={saveStatus}

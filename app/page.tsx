@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { generateRoomId, setStoredUserName, getStoredUserName } from '../lib/room-storage';
-import { DOCUMENT_TEMPLATES, type TemplateItem } from '../lib/templates';
+import { DOCUMENT_TEMPLATES } from '../lib/templates';
 import { Icons } from '../components/ui/icons';
 import { AuthCorner } from '../components/layout/AuthCorner';
 import { PreviousDocumentsSidebar } from '../components/layout/PreviousDocumentsSidebar';
-import { ThemeToggle } from '../components/ui/theme-toggle';
 import { HeroShowcase } from '../components/landing/HeroShowcase';
+import { ThemeToggle } from '../components/ui/theme-toggle';
+import { MetadataRow, TechnicalLabel } from '../components/design';
 
 export default function Home() {
   const router = useRouter();
@@ -18,14 +19,14 @@ export default function Home() {
   const [joinCode, setJoinCode] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('blank');
   const [error, setError] = useState('');
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    setMounted(true);
-    const stored = getStoredUserName();
-    if (stored && stored.trim()) {
-      setUserName(stored);
-    }
+    const timer = setTimeout(() => {
+      const stored = getStoredUserName();
+      if (stored && stored.trim()) {
+        setUserName(stored);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleStart = (e: React.FormEvent) => {
@@ -70,58 +71,70 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col selection:bg-[var(--accent-subtle)] selection:text-[var(--accent)] relative transition-colors mesh-bg overflow-x-hidden">
-      {/* Top Left: Login Detail / Login Button */}
-      <AuthCorner />
-
-      {/* Top Right: Theme Toggle */}
-      <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-30 flex items-center gap-2">
-        <Link
-          href="/dashboard"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text)] transition-all shadow-xs"
-        >
-          <span>Dashboard</span>
-          <Icons.ArrowRight size={12} />
-        </Link>
-        <ThemeToggle />
-      </div>
+    <div className="min-h-screen overflow-x-hidden bg-[var(--background)] text-[var(--ink)] selection:bg-[var(--accent-subtle)] selection:text-[var(--ink)]">
+      <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-sm">
+        <nav className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8 lg:px-12" aria-label="Main navigation">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Braid home">
+            <span className="flex h-7 w-7 items-center justify-center bg-[var(--accent)] text-white"><Icons.Logo size={15} /></span>
+            <span className="font-display text-xl tracking-tight">Braid</span>
+          </Link>
+          <TechnicalLabel className="hidden md:block">REAL-TIME COLLABORATIVE WORKSPACE</TechnicalLabel>
+          <div className="flex items-center gap-3 sm:gap-5">
+            <a href="https://github.com/himanshuvkm/braid#-project-structure" target="_blank" rel="noreferrer" className="hidden text-[10px] font-mono uppercase tracking-wider text-[var(--muted)] hover:text-[var(--ink)] sm:inline">Docs</a>
+            <a href="#architecture" className="hidden text-[10px] font-mono uppercase tracking-wider text-[var(--muted)] hover:text-[var(--ink)] lg:inline">Architecture</a>
+            <a href="https://github.com/himanshuvkm/braid" target="_blank" rel="noreferrer" className="hidden text-[10px] font-mono uppercase tracking-wider text-[var(--muted)] hover:text-[var(--ink)] sm:inline">GitHub</a>
+            <AuthCorner layout="inline" className="text-[10px] font-mono uppercase tracking-wider" />
+            <ThemeToggle />
+            <a href="#open-braid" className="inline-flex h-9 items-center gap-2 bg-[var(--accent)] px-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[var(--accent-hover)] sm:px-4">Open editor <Icons.ArrowRight size={12} /></a>
+          </div>
+        </nav>
+      </header>
 
       {/* Bottom Right: Previous Documents Sidebar Drawer */}
       <PreviousDocumentsSidebar />
 
       {/* Hero Section Container */}
-      <main className="flex-1 flex flex-col items-center justify-start pt-20 sm:pt-28 pb-16 px-4 sm:px-6 max-w-6xl mx-auto w-full">
-        {/* Animated Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-panel border border-[var(--border-glow)] text-[11px] font-mono text-[var(--text)] shadow-xs animate-fade-in mb-6">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Powered by Custom RGA CRDTs & Lamport Clocks</span>
-        </div>
-
-        {/* Hero Title & Subtitle */}
-        <div className="flex flex-col items-center text-center max-w-3xl gap-4 animate-fade-in">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[var(--text)] leading-[1.15]">
-            Where technical thoughts <br />
-            <span className="text-gradient-accent">intertwine in real time.</span>
-          </h1>
-
-          <p className="text-sm sm:text-base md:text-lg text-[var(--text-muted)] max-w-2xl leading-relaxed">
-            Blazing-fast, conflict-free collaborative workspace for engineering specs, multi-language code snippets, and team documents with guaranteed mathematical convergence.
-          </p>
-        </div>
+      <main className="editorial-grid mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-12 sm:px-8 lg:px-12">
+        <section className="grid gap-10 border-b border-[var(--line)] py-16 sm:py-20 lg:grid-cols-12 lg:gap-12 lg:py-28">
+          <div className="lg:col-span-7">
+            <div className="mb-7 flex items-center gap-3"><span className="font-mono text-[11px] text-[var(--accent)]">01</span><span className="h-px w-10 bg-[var(--line)]" /><TechnicalLabel>REAL-TIME COLLABORATION</TechnicalLabel></div>
+            <h1 className="max-w-4xl font-display text-5xl font-normal leading-[0.92] tracking-[-0.055em] sm:text-7xl lg:text-6xl xl:text-[6.5rem]">A real-time<br />workspace<br /><em className="text-[var(--accent)]">for modern teams.</em></h1>
+            <p className="mt-7 max-w-xl text-sm leading-7 text-[var(--muted)] sm:text-base">Minimal real-time collaborative editor for modern teams—blazing-fast, conflict-free documents and code powered by a custom RGA CRDT.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href="#open-braid" className="inline-flex h-11 items-center gap-4 bg-[var(--accent)] px-5 font-mono text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[var(--accent-hover)]">Open Braid <Icons.ArrowRight size={13} /></a>
+              <a href="https://github.com/himanshuvkm/braid" target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-3 border border-[var(--line)] px-5 font-mono text-[10px] uppercase tracking-wider hover:border-[var(--ink)]">View on GitHub <Icons.ArrowRight size={13} /></a>
+            </div>
+          </div>
+          <div className="flex items-center lg:col-span-5">
+            <div className="blueprint-canvas w-full border border-[var(--line)] p-4 sm:p-6">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-3"><TechnicalLabel>LIVE DOCUMENT / RGA</TechnicalLabel><span className="font-mono text-[9px] text-[var(--muted)]">BRAID / 01</span></div>
+              <div className="relative my-8 border-y border-[var(--line)] bg-[var(--paper)] p-5 sm:p-7">
+                <span className="absolute -left-1 top-8 h-3 w-1 bg-[var(--accent)]" />
+                <TechnicalLabel>DOCUMENT / OVERVIEW</TechnicalLabel>
+                <div className="mt-5 font-display text-3xl">Think together.</div>
+                <div className="mt-4 h-px w-4/5 bg-[var(--line)]" /><div className="mt-2 h-px w-3/5 bg-[var(--line)]" />
+                <div className="mt-5 border-l border-[var(--accent)] pl-3 font-mono text-[10px] leading-5 text-[var(--muted)]">op(site-a, 041) ─────┐<br />op(site-b, 038) ────┼──→ merged sequence<br />op(site-c, 012) ────┘</div>
+              </div>
+              <div className="flex items-center justify-between"><MetadataRow items={[{ label: 'SYNC', value: 'LIVE' }, { label: 'NODES', value: 'RGA' }]} /><span className="flex -space-x-1"><span className="flex h-6 w-6 items-center justify-center border border-[var(--paper)] bg-[var(--ink)] font-mono text-[9px] text-[var(--paper)]">A</span><span className="flex h-6 w-6 items-center justify-center border border-[var(--paper)] bg-[var(--accent)] font-mono text-[9px] text-white">B</span></span></div>
+            </div>
+          </div>
+        </section>
 
         {/* Interactive Workspace Launcher Card */}
-        <div className="w-full max-w-md mt-10 rounded-2xl sm:rounded-3xl glass-card p-6 sm:p-8 shadow-2xl border border-[var(--border)] animate-fade-in">
+        <div id="open-braid" className="scroll-mt-20 grid w-full gap-8 border-b border-[var(--line)] py-10 sm:py-14 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-4"><span className="font-mono text-[11px] uppercase tracking-wider text-[var(--accent)]">Start a room</span><h2 className="mt-4 font-display text-3xl sm:text-4xl">Open a workspace.</h2><p className="mt-3 max-w-sm text-xs leading-6 text-[var(--muted)]">Create a document for your team or join an existing room with its invite link.</p></div>
+          <div className="w-full border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6 lg:col-span-8">
           <form onSubmit={handleStart} className="flex flex-col gap-4">
             {/* Direct Name Input */}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="user-name-input" className="text-xs font-semibold text-[var(--text-muted)]">
+                <label htmlFor="user-name-input" className="font-mono text-[10px] uppercase tracking-wider text-[var(--muted)]">
                 Your Display Name
               </label>
               <div className="relative">
                 <input
                   id="user-name-input"
                   type="text"
-                  placeholder="e.g. Alex"
+                  placeholder="Your name..."
                   value={userName}
                   onChange={(e) => {
                     setUserName(e.target.value);
@@ -129,7 +142,7 @@ export default function Home() {
                   }}
                   autoFocus
                   required
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-sm text-[var(--text)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface)] transition-all shadow-inner focus:ring-2 focus:ring-[var(--accent)]/20"
+                  className="w-full border-b border-[var(--line)] bg-transparent px-0 py-3 text-sm text-[var(--ink)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--accent)] focus:ring-0"
                 />
               </div>
             </div>
@@ -137,7 +150,7 @@ export default function Home() {
             {/* Template Selector (Only in Create Mode) */}
             {!isJoinMode && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center justify-between">
+                <label className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-[var(--muted)]">
                   <span>Starter Template</span>
                   <span className="text-[10px] font-normal text-[var(--text-subtle)]">Optional</span>
                 </label>
@@ -149,10 +162,10 @@ export default function Home() {
                         key={tmpl.id}
                         type="button"
                         onClick={() => setSelectedTemplate(tmpl.id)}
-                        className={`px-3 py-2 rounded-xl text-left text-xs transition-all flex flex-col gap-0.5 border cursor-pointer ${
+                        className={`border px-3 py-3 text-left text-xs transition-colors flex flex-col gap-0.5 cursor-pointer ${
                           isSelected
-                            ? 'bg-[var(--accent-subtle)] border-[var(--accent)] text-[var(--text)] shadow-xs'
-                            : 'bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)]'
+                            ? 'bg-[var(--accent-subtle)] border-[var(--accent)] text-[var(--ink)]'
+                            : 'bg-transparent hover:bg-[var(--surface-muted)] border-[var(--line)] text-[var(--muted)]'
                         }`}
                       >
                         <span className="font-semibold text-[var(--text)] truncate">{tmpl.title}</span>
@@ -167,7 +180,7 @@ export default function Home() {
             {/* Join Code Input (Only in Join Mode) */}
             {isJoinMode && (
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="room-code-input" className="text-xs font-semibold text-[var(--text-muted)]">
+                <label htmlFor="room-code-input" className="font-mono text-[10px] uppercase tracking-wider text-[var(--muted)]">
                   Room Code or Invite Link
                 </label>
                 <input
@@ -179,7 +192,7 @@ export default function Home() {
                     setJoinCode(e.target.value);
                     if (error) setError('');
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-sm font-mono text-[var(--text)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface)] transition-all shadow-inner focus:ring-2 focus:ring-[var(--accent)]/20"
+                  className="w-full border-b border-[var(--line)] bg-transparent px-0 py-3 text-sm font-mono text-[var(--ink)] placeholder-[var(--text-subtle)] outline-none focus:border-[var(--accent)] focus:ring-0"
                 />
               </div>
             )}
@@ -189,26 +202,27 @@ export default function Home() {
             {/* Primary Action Button */}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-1 shadow-lg glow-accent"
+              className="mt-1 flex h-11 w-full items-center justify-center gap-2 bg-[var(--accent)] text-xs font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] sm:text-sm"
             >
-              <span>{isJoinMode ? 'Join Collaborative Room' : 'Start Instant Workspace'}</span>
+              <span>{isJoinMode ? 'Join Room' : 'Start Writing'}</span>
               <Icons.ArrowRight size={14} />
             </button>
           </form>
 
           {/* Mode Switcher */}
-          <div className="flex items-center justify-center gap-3 text-xs text-[var(--text-muted)] mt-4 pt-3 border-t border-[var(--border)]">
+          <div className="mt-4 flex items-center justify-center gap-3 border-t border-[var(--line)] pt-3 text-xs text-[var(--muted)]">
             <button
               type="button"
               onClick={() => {
                 setIsJoinMode(!isJoinMode);
                 setError('');
               }}
-              className="hover:text-[var(--text)] transition-colors cursor-pointer font-medium"
+              className="font-mono text-[10px] uppercase tracking-wider hover:text-[var(--ink)]"
             >
-              {isJoinMode ? '← Create a new instant document' : 'Have an invite code? Join existing room'}
+              {isJoinMode ? '← Create a new room' : 'Have a room code? Join room'}
             </button>
           </div>
+        </div>
         </div>
 
         {/* Live Hero Interactive Preview Showcase */}
@@ -216,27 +230,29 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-6 border-t border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-md text-xs text-[var(--text-subtle)] text-center flex flex-col sm:flex-row items-center justify-between px-6 max-w-6xl mx-auto gap-3">
+      <footer className="mx-auto flex w-full max-w-[1440px] flex-col items-center justify-between gap-3 border-t border-[var(--line)] px-4 py-6 text-center text-xs text-[var(--muted)] sm:flex-row sm:px-8 sm:text-left lg:px-12">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)]">
             <Icons.Logo size={12} />
           </div>
-          <span className="font-bold text-[var(--text)]">Braid</span>
-          <span>• Real-time collaborative document & code engine</span>
+          <span className="font-display text-lg text-[var(--ink)]">Braid</span>
+          <span>Real-time collaborative document &amp; code editor.</span>
         </div>
 
         <div className="flex items-center gap-4">
-          <Link href="/login" className="hover:text-[var(--text)] transition-colors">Sign In</Link>
-          <Link href="/dashboard" className="hover:text-[var(--text)] transition-colors">Dashboard</Link>
+          <Link href="/login" className="hover:text-[var(--ink)] transition-colors">Sign in</Link>
+          <a href="#architecture" className="hover:text-[var(--ink)] transition-colors">Architecture</a>
+          <a href="https://github.com/himanshuvkm/braid#-project-structure" target="_blank" rel="noreferrer" className="hover:text-[var(--ink)] transition-colors">Docs</a>
           <a
-            href="https://github.com"
+            href="https://github.com/himanshuvkm/braid"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-[var(--text)] transition-colors flex items-center gap-1"
+            className="hover:text-[var(--ink)] transition-colors flex items-center gap-1"
           >
             <Icons.GitHub size={13} />
             <span>GitHub</span>
           </a>
+          <a href="https://github.com/himanshuvkm/braid/blob/main/LICENSE" target="_blank" rel="noreferrer" className="hover:text-[var(--ink)] transition-colors">License</a>
         </div>
       </footer>
     </div>

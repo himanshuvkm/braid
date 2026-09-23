@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '../../../../../lib/auth';
-import { getProject, getProjectRole, duplicateProject } from '../../../../../lib/db';
+import { getProject, duplicateProject } from '../../../../../lib/db';
 
 interface RouteContext {
   params: Promise<{ id: string }>;

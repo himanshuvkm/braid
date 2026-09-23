@@ -6,7 +6,6 @@ import type { User } from '../../lib/db';
 import { Icons } from '../ui/icons';
 import { IconButton } from '../ui/icon-button';
 import { Avatar } from '../ui/avatar';
-import { ThemeToggle } from '../ui/theme-toggle';
 
 export type DashboardFilter = 'all' | 'owned' | 'shared' | 'recent';
 
@@ -51,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed md:sticky top-0 z-40 h-screen w-64 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col justify-between p-4 transition-transform duration-200 ease-out select-none ${
+        className={`fixed md:sticky top-0 z-40 h-screen w-60 bg-[var(--paper)] border-r border-[var(--line)] flex flex-col justify-between p-4 transition-transform duration-200 ease-out select-none ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -63,10 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center gap-2.5 group"
               onClick={onCloseMobile}
             >
-              <div className="w-6 h-6 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-6 h-6 bg-[var(--accent)] text-white flex items-center justify-center">
                 <Icons.Logo size={13} />
               </div>
-              <span className="font-bold text-sm tracking-tight text-[var(--text)]">
+              <span className="font-display text-lg tracking-tight text-[var(--ink)]">
                 Braid Workspace
               </span>
             </Link>
@@ -93,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onCloseMobile?.();
               }}
               disabled={isCreating}
-              className="w-full h-9 px-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold shadow-xs hover:shadow-sm transition-all flex items-center justify-between disabled:opacity-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
+              className="w-full h-10 px-3 border border-[var(--accent)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center justify-between disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <Icons.Plus size={14} className="text-white" />
@@ -113,10 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('all');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 border-l-2 px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide transition-colors cursor-pointer ${
                 activeFilter === 'all'
-                  ? 'bg-[var(--surface-hover)] text-[var(--text)] shadow-xs font-semibold border border-[var(--border-strong)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]'
+                  ? 'border-l-[var(--accent)] bg-[var(--surface-muted)] text-[var(--ink)] font-semibold'
+                  : 'border-l-transparent text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
               }`}
             >
               <Icons.Home size={14} className="shrink-0" />
@@ -132,10 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('owned');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 border-l-2 px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide transition-colors cursor-pointer ${
                 activeFilter === 'owned'
-                  ? 'bg-[var(--surface-hover)] text-[var(--text)] shadow-xs font-semibold border border-[var(--border-strong)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]'
+                  ? 'border-l-[var(--accent)] bg-[var(--surface-muted)] text-[var(--ink)] font-semibold'
+                  : 'border-l-transparent text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
               }`}
             >
               <Icons.Document size={14} className="shrink-0" />
@@ -151,10 +150,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('shared');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 border-l-2 px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide transition-colors cursor-pointer ${
                 activeFilter === 'shared'
-                  ? 'bg-[var(--surface-hover)] text-[var(--text)] shadow-xs font-semibold border border-[var(--border-strong)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]'
+                  ? 'border-l-[var(--accent)] bg-[var(--surface-muted)] text-[var(--ink)] font-semibold'
+                  : 'border-l-transparent text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
               }`}
             >
               <Icons.Users size={14} className="shrink-0" />
@@ -170,10 +169,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onFilterChange('recent');
                 onCloseMobile?.();
               }}
-              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 px-3 py-2 rounded-xl text-left font-medium transition-all cursor-pointer ${
+              className={`min-h-[38px] md:min-h-[34px] flex items-center gap-2.5 border-l-2 px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide transition-colors cursor-pointer ${
                 activeFilter === 'recent'
-                  ? 'bg-[var(--surface-hover)] text-[var(--text)] shadow-xs font-semibold border border-[var(--border-strong)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]'
+                  ? 'border-l-[var(--accent)] bg-[var(--surface-muted)] text-[var(--ink)] font-semibold'
+                  : 'border-l-transparent text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
               }`}
             >
               <Icons.Clock size={14} className="shrink-0" />

@@ -1,5 +1,3 @@
-import React from 'react';
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { getCurrentUser, SESSION_COOKIE_NAME } from '../../lib/auth';
 import { getProject } from '../../lib/db';
@@ -20,12 +18,13 @@ export default async function DocumentPage(props: PageProps) {
 
   // 1. Get logged-in user or provide lightweight collaborator identity
   const loggedInUser = await getCurrentUser();
+  const now = 0;
   const user = loggedInUser || {
-    id: `guest-${Math.random().toString(36).substring(2, 8)}`,
+    id: 'guest-collaborator',
     name: customUser || 'Collaborator',
     email: 'collaborator@braid.app',
-    created_at: Date.now(),
-    updated_at: Date.now(),
+    created_at: now,
+    updated_at: now,
   };
 
   // 2. Query project from database or initialize open collaborative room
@@ -37,8 +36,8 @@ export default async function DocumentPage(props: PageProps) {
       name: documentTitle,
       content: `# ${documentTitle}\n\nStart writing, or type / for commands...`,
       owner_id: user.id,
-      created_at: Date.now(),
-      updated_at: Date.now(),
+      created_at: now,
+      updated_at: now,
     };
   }
 

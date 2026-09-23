@@ -53,7 +53,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ trigger, items, align = 'rig
       {isOpen && (
         <div
           role="menu"
-          className={`absolute z-50 mt-1.5 min-w-[180px] rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-modal animate-scale-up ${
+          className={`absolute z-50 mt-1.5 min-w-[180px] border border-[var(--line)] bg-[var(--paper)] p-1 shadow-modal ${
             align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
         >

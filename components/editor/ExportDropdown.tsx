@@ -183,7 +183,7 @@ export function ExportDropdown({
         aria-label="Export document"
         id="export-dropdown-trigger"
         className={`inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg border select-none active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none cursor-pointer ${
-          isSmall ? 'h-8 px-2.5 text-xs gap-1.5' : 'h-9 px-3 text-xs gap-2'
+          isSmall ? 'h-8 px-2.5 text-[10px] font-mono uppercase tracking-wide gap-1.5' : 'h-9 px-3 text-[10px] font-mono uppercase tracking-wide gap-2'
         } ${
           isOpen
             ? 'bg-[var(--surface-hover)] text-[var(--text)] border-[var(--border-strong)]'
@@ -220,10 +220,10 @@ export function ExportDropdown({
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="export-dropdown-trigger"
-          className="absolute right-0 top-full mt-1.5 w-56 p-1.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-modal z-50 flex flex-col gap-0.5 animate-slide-down focus:outline-none text-[var(--text)]"
+          className="absolute right-0 top-full mt-1.5 w-60 border border-[var(--line)] bg-[var(--paper)] p-1 shadow-modal z-50 flex flex-col text-[var(--ink)]"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-subtle)] px-2 py-1">
-            Export Document
+          <div className="border-b border-[var(--line)] px-2 py-2 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            Export / Available formats
           </div>
 
           {/* Option 1: Microsoft Word (.docx) */}
@@ -236,14 +236,14 @@ export function ExportDropdown({
             id="export-option-docx"
             onClick={() => executeExport('docx')}
             onKeyDown={(e) => handleMenuKeyDown(e, 0)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-[var(--text)] hover:bg-[var(--surface-hover)] focus:bg-[var(--surface-hover)] focus:outline-none transition-colors cursor-pointer"
+            className="flex w-full items-center gap-3 border-b border-[var(--line)] px-2.5 py-3 text-left text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-muted)] focus:bg-[var(--surface-muted)] focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-500 shrink-0">
+            <div className="w-7 h-7 border border-[var(--line)] flex items-center justify-center text-[var(--accent)] shrink-0">
               <Icons.FileText size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[var(--text)]">Word (.docx)</span>
-              <span className="text-[10px] text-[var(--text-subtle)]">Microsoft Word format</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider">DOCX / Word</span>
+              <span className="text-[10px] text-[var(--muted)]">Editable document</span>
             </div>
           </button>
 
@@ -257,14 +257,14 @@ export function ExportDropdown({
             id="export-option-pdf"
             onClick={() => executeExport('pdf')}
             onKeyDown={(e) => handleMenuKeyDown(e, 1)}
-            className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-[var(--text)] hover:bg-[var(--surface-hover)] focus:bg-[var(--surface-hover)] focus:outline-none transition-colors cursor-pointer"
+            className="flex w-full items-center gap-3 px-2.5 py-3 text-left text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-muted)] focus:bg-[var(--surface-muted)] focus:outline-none transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 shrink-0">
+            <div className="w-7 h-7 border border-[var(--line)] flex items-center justify-center text-[var(--accent)] shrink-0">
               <Icons.Document size={11} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[var(--text)]">PDF (.pdf)</span>
-              <span className="text-[10px] text-[var(--text-subtle)]">Printable document</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider">PDF / Print</span>
+              <span className="text-[10px] text-[var(--muted)]">Formatted pages</span>
             </div>
           </button>
         </div>

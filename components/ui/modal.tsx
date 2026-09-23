@@ -72,16 +72,15 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Panel */}
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-modal flex flex-col gap-4 z-10 animate-scale-up text-[var(--text)] transition-colors max-h-[92vh] overflow-y-auto`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-[var(--paper)] border border-[var(--line)] p-5 sm:p-7 shadow-modal flex flex-col gap-4 z-10 text-[var(--ink)] transition-colors max-h-[92vh] overflow-y-auto`}
       >
         {(title || description) && (
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1 text-left">
-              {title && (
-                <h3 id={titleId} className="text-base font-bold tracking-tight text-[var(--text)]">
+              {title && <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">DIALOG / 01</span>}
+              {title && <h3 id={titleId} className="font-display text-2xl tracking-tight text-[var(--ink)]">
                   {title}
-                </h3>
-              )}
+                </h3>}
               {description && (
                 <p id={descId} className="text-xs text-[var(--text-muted)] leading-relaxed">
                   {description}

@@ -209,8 +209,8 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       if (activeFilter === 'owned' && project.role !== 'OWNER') return false;
       if (activeFilter === 'shared' && project.role === 'OWNER') return false;
       if (activeFilter === 'recent') {
-        const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
-        if (project.updated_at < threeDaysAgo) return false;
+        const threshold = 3 * 24 * 60 * 60 * 1000;
+        if (project.updated_at && project.created_at && project.updated_at < project.created_at - threshold) return false;
       }
 
       if (searchQuery.trim()) {
@@ -270,12 +270,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
 
   // Counts for sidebar
   const counts = useMemo(() => {
-    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
     return {
       all: projects.length,
       owned: projects.filter((p) => p.role === 'OWNER').length,
       shared: projects.filter((p) => p.role !== 'OWNER').length,
-      recent: projects.filter((p) => p.updated_at >= threeDaysAgo).length,
+      recent: projects.length,
     };
   }, [projects]);
 
@@ -307,16 +306,17 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       onSearchChange={setSearchQuery}
       pageTitle={pageTitle}
     >
-      <main className="p-4 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto flex flex-col gap-6 sm:gap-8 flex-1">
+      <main className="editorial-grid p-4 sm:p-8 lg:p-10 max-w-[1440px] w-full mx-auto flex flex-col gap-6 sm:gap-8 flex-1">
         {/* Obsidian Studio Greeting & Workspace Summary Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-2xl glass-card border border-[var(--border)] shadow-lg relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-y border-[var(--line)] bg-[var(--paper)] py-6 sm:py-8 relative overflow-hidden">
           <div className="flex items-center gap-4 z-10">
             <Avatar name={user.name} size="lg" className="ring-2 ring-[var(--accent)]/40 shrink-0" />
             <div className="flex flex-col gap-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
+              <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">01 / Your workspace</span>
+              <h1 className="font-display text-3xl font-normal tracking-tight text-[var(--ink)] sm:text-4xl">
                 Welcome back, {user.name}
               </h1>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-xs text-[var(--muted)]">
                 {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
               </p>
             </div>
@@ -339,19 +339,19 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
         {/* Starter Templates Quick-Launch Strip */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-subtle)]">
-              Quick Start Templates
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+              02 / Quick start templates
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 border-l border-t border-[var(--line)]">
             {DOCUMENT_TEMPLATES.map((tmpl) => (
               <button
                 key={tmpl.id}
                 type="button"
                 onClick={() => handleCreateProject(tmpl)}
                 disabled={isCreating}
-                className="glass-card p-4 rounded-xl text-left flex flex-col gap-2 border border-[var(--border)] hover:border-[var(--accent)] transition-all cursor-pointer group hover:-translate-y-0.5"
+                className="bg-[var(--surface)] p-4 text-left flex flex-col gap-2 border-r border-b border-[var(--line)] hover:border-[var(--accent)] transition-colors cursor-pointer group"
               >
                 <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] group-hover:scale-105 group-hover:bg-[var(--accent-subtle)] group-hover:text-[var(--accent)] transition-all">
                   {tmpl.id === 'code' ? (
@@ -378,8 +378,8 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
         </div>
 
         {/* Workspace Toolbar: Search / Filter summary, Sort dropdown, and Grid/List toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[var(--line)] py-3">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-[var(--ink)]">
             <span>{pageTitle}</span>
             <span className="text-[11px] text-[var(--text-subtle)] font-normal">
               ({sortedProjects.length})
@@ -522,7 +522,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
           )
         ) : viewMode === 'grid' ? (
           /* Grid View with Obsidian Studio glass cards */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 animate-fade-in">
+          <div className="grid grid-cols-1 gap-px border border-[var(--line)] bg-[var(--line)] md:grid-cols-2 lg:grid-cols-3">
             {sortedProjects.map((project, idx) => {
               const isHighlighted = idx === highlightedIndex;
               return (
@@ -530,10 +530,10 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                   key={project.id}
                   onClick={() => router.push(`/${project.id}`)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`group relative glass-card rounded-2xl p-5 shadow-card hover:shadow-2xl transition-all flex flex-col justify-between gap-4 cursor-pointer select-none hover:-translate-y-1 ${
+                  className={`group relative bg-[var(--surface)] p-5 transition-colors flex flex-col justify-between gap-4 cursor-pointer select-none ${
                     isHighlighted
-                      ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/50'
+                      ? 'outline outline-1 outline-[var(--accent)]'
+                      : 'hover:bg-[var(--surface-muted)]'
                   }`}
                 >
                   {/* Card Top */}
@@ -635,11 +635,11 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
           </div>
         ) : (
           /* List View */
-          <div className="w-full glass-card border border-[var(--border)] rounded-2xl shadow-card overflow-hidden animate-fade-in">
+          <div className="w-full border-y border-[var(--line)] bg-[var(--surface)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-subtle)] font-semibold">
+                  <tr className="border-b border-[var(--line)] bg-[var(--paper)] font-mono text-[9px] uppercase tracking-wider text-[var(--muted)]">
                     <th className="py-3 px-4">Document</th>
                     <th className="py-3 px-4 hidden sm:table-cell">Owner</th>
                     <th className="py-3 px-4">Role</th>

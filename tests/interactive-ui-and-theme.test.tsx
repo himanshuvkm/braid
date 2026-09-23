@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { ThemeProvider } from '../components/ui/theme-provider';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-import { SlashMenu, SLASH_MENU_ITEMS } from '../components/editor/SlashMenu';
+import { SlashMenu } from '../components/editor/SlashMenu';
 import { BlockItem } from '../components/editor/BlockItem';
 import { FormatToolbar } from '../components/editor/FormatToolbar';
 import type { Block } from '../lib/document-model';

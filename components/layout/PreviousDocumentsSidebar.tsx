@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icons } from '../ui/icons';
-import { Avatar } from '../ui/avatar';
 import { Tooltip } from '../ui/tooltip';
 import type { User, ProjectWithRole } from '../../lib/db';
 
@@ -45,25 +44,20 @@ export function PreviousDocumentsSidebar({
   const fetchAuthAndProjects = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch current user
       const authRes = await fetch('/api/auth/me');
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        if (authData?.user) {
-          setUser(authData.user);
-          // 2. Fetch user's previous projects
-          const projRes = await fetch('/api/projects');
-          if (projRes.ok) {
-            const projData = await projRes.json();
-            setProjects(projData.projects || []);
-          }
-        } else {
-          setUser(null);
-          setProjects([]);
-        }
-      } else {
+      if (!authRes.ok) {
         setUser(null);
         setProjects([]);
+        return;
+      }
+      const authData = await authRes.json();
+      if (authData?.user) {
+        setUser(authData.user);
+        const projRes = await fetch('/api/projects');
+        if (projRes.ok) {
+          const projData = await projRes.json();
+          setProjects(projData.projects || []);
+        }
       }
     } catch {
       setUser(null);
@@ -74,9 +68,11 @@ export function PreviousDocumentsSidebar({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
       fetchAuthAndProjects();
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, fetchAuthAndProjects]);
 
   // Close on Escape key

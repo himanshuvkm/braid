@@ -4,7 +4,6 @@ import {
   generateOAuthState,
   parseAndValidateOAuthState,
   findOrCreateOAuthUser,
-  exchangeCodeForProfile,
   type OAuthUserProfile,
 } from '../lib/oauth';
 import { GET as oauthRedirectHandler } from '../app/api/auth/oauth/[provider]/route';

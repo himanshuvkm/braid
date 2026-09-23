@@ -10,23 +10,23 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  neutral: 'bg-[var(--surface-muted)] text-[var(--text)] border-[var(--border)]',
-  accent: 'bg-[var(--accent-subtle)] text-[var(--accent)] border-[var(--accent)]/40',
-  blue: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
-  success: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  warning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-  danger: 'bg-red-500/10 text-red-500 border-red-500/30',
-  outline: 'bg-transparent text-[var(--text-muted)] border-[var(--border)]',
+  neutral: 'bg-transparent text-[var(--muted)] border-[var(--line)]',
+  accent: 'bg-[var(--accent-subtle)] text-[var(--accent)] border-[var(--accent)]',
+  blue: 'bg-transparent text-[var(--muted)] border-[var(--line)]',
+  success: 'bg-transparent text-[var(--muted)] border-[var(--line)]',
+  warning: 'bg-transparent text-[var(--muted)] border-[var(--line)]',
+  danger: 'bg-transparent text-[var(--accent)] border-[var(--accent)]',
+  outline: 'bg-transparent text-[var(--muted)] border-[var(--line)]',
 };
 
 const dotColors: Record<BadgeVariant, string> = {
-  neutral: 'bg-[#64635e]',
-  accent: 'bg-[#d95338]',
-  blue: 'bg-blue-600',
-  success: 'bg-emerald-600',
-  warning: 'bg-amber-600',
-  danger: 'bg-red-600',
-  outline: 'bg-[#64635e]',
+  neutral: 'bg-[var(--muted)]',
+  accent: 'bg-[#d95338] editorial-accent-dot',
+  blue: 'bg-[var(--muted)]',
+  success: 'bg-[var(--muted)]',
+  warning: 'bg-[var(--accent)]',
+  danger: 'bg-[var(--accent)]',
+  outline: 'bg-[var(--muted)]',
 };
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -39,7 +39,7 @@ export const Badge: React.FC<BadgeProps> = ({
 }) => {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-semibold border uppercase tracking-wider rounded-full select-none ${
+      className={`inline-flex items-center gap-1.5 font-mono font-medium border uppercase tracking-wider select-none ${
         variantStyles[variant]
       } ${
         size === 'sm' ? 'text-[10px] px-2 py-0.5' : 'text-xs px-2.5 py-1'

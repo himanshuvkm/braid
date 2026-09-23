@@ -16,19 +16,17 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = 'braid:theme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
       if (stored === 'dark' || stored === 'light' || stored === 'system') {
-        setThemeState(stored);
+        return stored;
       }
     } catch {}
-    setMounted(true);
-  }, []);
+    return 'light';
+  });
+  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -91,7 +89,7 @@ export function useTheme() {
   if (!context) {
     return {
       theme: 'dark' as Theme,
-      resolvedTheme: 'dark' as 'dark' | 'light',
+      resolvedTheme: 'light' as 'dark' | 'light',
       setTheme: () => {},
       toggleTheme: () => {},
     };

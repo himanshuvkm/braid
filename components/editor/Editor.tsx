@@ -16,6 +16,8 @@ import { Input } from '../ui/input';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { ShareModal } from '../ui/share-modal';
 import { PreviousDocumentsSidebar } from '../layout/PreviousDocumentsSidebar';
+import { parseDocument, parseInlineFormatting, type BlockType } from '../../lib/document-model';
+import { TechnicalLabel } from '../design';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
 export type EditorMode = 'text' | 'code';
@@ -106,6 +108,77 @@ function createRGAWithContent(siteId: string, initialContent?: string): RGA {
   return rga;
 }
 
+function InlinePreviewText({ content }: { content: string }) {
+  return <>{parseInlineFormatting(content).map((span, index) => {
+    let child: React.ReactNode = span.text;
+    if (span.code) child = <code className="rounded bg-[var(--surface-muted)] px-1 py-0.5 font-mono text-[0.9em]">{child}</code>;
+    if (span.bold) child = <strong>{child}</strong>;
+    if (span.italic) child = <em>{child}</em>;
+    if (span.underline) child = <u>{child}</u>;
+    if (span.strikethrough) child = <s>{child}</s>;
+    if (span.link && /^(https?:|mailto:|#)/i.test(span.link)) {
+      child = <a href={span.link} className="text-[var(--accent)] underline underline-offset-2" target={span.link.startsWith('#') ? undefined : '_blank'} rel={span.link.startsWith('#') ? undefined : 'noreferrer'}>{child}</a>;
+    }
+    return <React.Fragment key={index}>{child}</React.Fragment>;
+  })}</>;
+}
+
+function DocumentPreview({ content }: { content: string }) {
+  const blocks = parseDocument(content).blocks;
+  const output: React.ReactNode[] = [];
+
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index];
+    if (block.type === 'bulleted_list' || block.type === 'numbered_list') {
+      const listType = block.type;
+      const items: typeof blocks = [];
+      while (index < blocks.length && blocks[index].type === listType) {
+        items.push(blocks[index]);
+        index++;
+      }
+      index--;
+      const List = listType === 'bulleted_list' ? 'ul' : 'ol';
+      output.push(<List key={block.id} className={`my-3 space-y-1.5 pl-6 ${listType === 'bulleted_list' ? 'list-disc' : 'list-decimal'}`}>
+        {items.map((item) => <li key={item.id} className="pl-1"><InlinePreviewText content={item.content} /></li>)}
+      </List>);
+      continue;
+    }
+
+    switch (block.type) {
+      case 'heading1':
+        output.push(<h1 key={block.id} className="mb-5 mt-8 text-3xl font-bold tracking-tight first:mt-0 sm:text-4xl"><InlinePreviewText content={block.content} /></h1>);
+        break;
+      case 'heading2':
+        output.push(<h2 key={block.id} className="mb-3 mt-7 text-2xl font-semibold tracking-tight"><InlinePreviewText content={block.content} /></h2>);
+        break;
+      case 'heading3':
+        output.push(<h3 key={block.id} className="mb-2 mt-6 text-xl font-semibold"><InlinePreviewText content={block.content} /></h3>);
+        break;
+      case 'todo':
+        output.push(<div key={block.id} className="my-2 flex gap-2"><span aria-hidden="true" className={block.checked ? 'text-[var(--success)]' : 'text-[var(--text-subtle)]'}>{block.checked ? '☑' : '□'}</span><span className={block.checked ? 'text-[var(--text-muted)] line-through' : ''}><InlinePreviewText content={block.content} /></span></div>);
+        break;
+      case 'quote':
+        output.push(<blockquote key={block.id} className="my-4 border-l-2 border-[var(--border-strong)] pl-4 italic text-[var(--text-muted)]"><InlinePreviewText content={block.content} /></blockquote>);
+        break;
+      case 'callout': {
+        const accent = block.calloutVariant === 'warning' ? 'var(--warning)' : block.calloutVariant === 'success' ? 'var(--success)' : block.calloutVariant === 'info' ? '#3b82f6' : 'var(--accent)';
+        output.push(<aside key={block.id} className="my-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3" style={{ borderLeft: `3px solid ${accent}` }}><InlinePreviewText content={block.content} /></aside>);
+        break;
+      }
+      case 'code':
+        output.push(<pre key={block.id} className="my-4 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6"><code className="font-mono">{block.content}</code></pre>);
+        break;
+      case 'divider':
+        output.push(<hr key={block.id} className="my-7 border-[var(--border)]" />);
+        break;
+      default:
+        output.push(<p key={block.id} className="my-3 whitespace-pre-wrap leading-7"><InlinePreviewText content={block.content} /></p>);
+    }
+  }
+
+  return <article className="mx-auto w-full max-w-3xl min-h-[450px] py-2 text-[var(--text)]" aria-label="Document preview">{output}</article>;
+}
+
 export const Editor: React.FC<EditorProps> = ({
   documentId,
   initialRoomName,
@@ -152,6 +225,9 @@ export const Editor: React.FC<EditorProps> = ({
   const activeUserName = enteredUserName || clientStoredUserName;
   const isJoined = Boolean(activeUserName.trim());
 
+  const syncClientRef = useRef<SyncClient | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const handleOpenEditName = useCallback(() => {
     setNameInput(activeUserName === 'Collaborator' ? '' : activeUserName);
     setIsEditingName(true);
@@ -173,6 +249,10 @@ export const Editor: React.FC<EditorProps> = ({
   const [mode, setMode] = useState<EditorMode>('text');
   const [codeLanguage, setCodeLanguage] = useState<string>('javascript');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [selectedBlockType, setSelectedBlockType] = useState<BlockType>(
+    () => parseDocument(initialContent).blocks[0]?.type ?? 'paragraph'
+  );
+  const [isPreview, setIsPreview] = useState(false);
 
   const rga = useMemo(
     () => createRGAWithContent(siteId || '', initialContent),
@@ -187,9 +267,6 @@ export const Editor: React.FC<EditorProps> = ({
   const [copyFeedback, setCopyFeedback] = useState<'id' | 'link' | null>(null);
   const [showPeersDropdown, setShowPeersDropdown] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const syncClientRef = useRef<SyncClient | null>(null);
 
   // Derive stable roomName
   const roomName = useMemo(() => {
@@ -284,8 +361,8 @@ export const Editor: React.FC<EditorProps> = ({
       },
       onStatusChange: (status: ConnectionStatus) => {
         setConnectionStatus(status);
-        if (syncClientRef.current) {
-          setPendingOpsCount(syncClientRef.current.pendingOutgoingCount);
+        if (client) {
+          setPendingOpsCount(client.pendingOutgoingCount);
         }
       },
     });
@@ -383,6 +460,17 @@ export const Editor: React.FC<EditorProps> = ({
   }, [documentId, initialContent, applyTextChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && mode === 'text') {
+      const shortcut = e.key.toLowerCase();
+      const inlineFormats: Record<string, [string, string]> = {
+        b: ['**', '**'], i: ['*', '*'], u: ['<u>', '</u>'],
+      };
+      if (inlineFormats[shortcut]) {
+        e.preventDefault();
+        applyInlineFormat(...inlineFormats[shortcut]);
+        return;
+      }
+    }
     // Tab key support for indentation in Code Mode
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -421,6 +509,49 @@ export const Editor: React.FC<EditorProps> = ({
       }
     }
   };
+
+  const applyInlineFormat = useCallback((prefix: string, suffix = prefix) => {
+    const input = textareaRef.current;
+    if (!input || mode !== 'text' || isReadOnly) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const selected = text.slice(start, end);
+    const next = `${text.slice(0, start)}${prefix}${selected}${suffix}${text.slice(end)}`;
+    applyTextChange(next);
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(start + prefix.length, end + prefix.length);
+    });
+  }, [applyTextChange, isReadOnly, mode, text]);
+
+  const applyBlockFormat = useCallback((type: BlockType) => {
+    const input = textareaRef.current;
+    if (!input || mode !== 'text' || isReadOnly) return;
+    const start = input.selectionStart;
+    const lineStart = text.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const lineEndAt = text.indexOf('\n', start);
+    const lineEnd = lineEndAt < 0 ? text.length : lineEndAt;
+    const line = text.slice(lineStart, lineEnd);
+    const block = parseDocument(line).blocks[0];
+    const body = block?.content ?? line;
+    const prefix: Record<BlockType, string> = {
+      paragraph: '', heading1: '# ', heading2: '## ', heading3: '### ',
+      bulleted_list: '- ', numbered_list: '1. ', todo: '- [ ] ',
+      quote: '> ', callout: '> 💡 ', code: '```\n', divider: '---',
+    };
+    let replacement = `${prefix[type]}${body}`;
+    if (type === 'code') replacement += '\n```';
+    if (block?.type === type) return;
+    if (type === 'divider') replacement = '---';
+    setSelectedBlockType(type);
+    const next = `${text.slice(0, lineStart)}${replacement}${text.slice(lineEnd)}`;
+    applyTextChange(next);
+    requestAnimationFrame(() => {
+      input.focus();
+      const caret = lineStart + Math.min(replacement.length, start - lineStart + replacement.length - line.length);
+      input.setSelectionRange(caret, caret);
+    });
+  }, [applyTextChange, isReadOnly, mode, text]);
 
   const handleCopyCode = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -552,7 +683,7 @@ export const Editor: React.FC<EditorProps> = ({
   return (
     <div className="flex flex-col min-h-screen w-full bg-[var(--background)] text-[var(--text)] selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors">
       {/* Top Workspace Navigation Bar */}
-      <header className="sticky top-0 z-30 px-3 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md select-none transition-colors gap-2 sm:gap-3">
+      <header className="sticky top-0 z-30 px-3 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper)] select-none transition-colors gap-2 sm:gap-3">
         {/* Mobile Left: Sidebar opening button + Room ID */}
         <div className="flex sm:hidden items-center gap-2 min-w-0">
           <button
@@ -601,7 +732,7 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Auth Login Detail & Name in Left Header Corner */}
-          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-[var(--border)]">
+          <div className="hidden items-center gap-2 pl-2 border-l border-[var(--border)]">
             {userId && !userId.startsWith('guest-') ? (
               <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
                 <Avatar name={activeUserName} size="xs" />
@@ -680,7 +811,14 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
 
         {/* Mobile Right: Theme Toggler */}
-        <div className="flex sm:hidden items-center shrink-0">
+        <div className="flex sm:hidden items-center gap-1 shrink-0">
+          <ExportDropdown
+            projectId={documentId}
+            documentTitle={roomName}
+            getContent={() => rgaRef.current.getText()}
+            onFlushSave={onFlushSave}
+            size="sm"
+          />
           <ThemeToggle />
         </div>
 
@@ -745,7 +883,7 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Collaborator Count & Dropdown */}
-          <div className="relative">
+          <div className="hidden">
             <button
               type="button"
               onClick={() => setShowPeersDropdown((prev) => !prev)}
@@ -815,7 +953,7 @@ export const Editor: React.FC<EditorProps> = ({
           <button
             type="button"
             onClick={handleOpenEditName}
-            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--surface-muted)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[11px] font-mono text-[var(--text)] transition-colors cursor-pointer group"
+            className="hidden"
             title={`You (${siteId || 'init'})`}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: userColor }} />
@@ -897,33 +1035,120 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Main Full-Screen Unified Editor Canvas */}
-      <div className="flex-1 flex flex-col w-full relative">
-        <main className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-8 py-4 sm:py-10 flex flex-col gap-3 min-h-[calc(100vh-6.5rem)]">
-          {/* Active Mode Header Details */}
-          <div className="flex items-center justify-between pb-2 border-b border-[var(--border)] select-none text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-[var(--text-subtle)]">Mode:</span>
-              <span className="text-xs font-semibold text-[var(--text)] font-mono">
-                {mode === 'text' ? 'Plain Text Editor' : `Code Editor (${codeLanguage.toUpperCase()})`}
-              </span>
-            </div>
+      <div className="grid flex-1 grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_250px]">
+        <aside className="hidden border-r border-[var(--line)] px-4 py-7 xl:block">
+          <div className="sticky top-20 flex flex-col gap-8">
+            <section>
+              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">01 / Workspace</div>
+              <Link href="/dashboard" className="flex items-center gap-2 border-y border-[var(--line)] py-3 text-xs hover:text-[var(--accent)]"><Icons.Folder size={13} /><span>All documents</span></Link>
+              <div className="mt-5 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">02 / Recent</div>
+              <div className="mt-2 border-y border-[var(--accent)] bg-[var(--accent-subtle)] px-2.5 py-3">
+                <span className="block truncate text-xs font-medium">{roomName}</span>
+                <span className="mt-1 block truncate font-mono text-[9px] text-[var(--muted)]">{documentId}</span>
+              </div>
+              <button type="button" onClick={() => setIsMobileMenuOpen(true)} className="mt-3 flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Menu size={12} /> Previous documents</button>
+            </section>
+            <section className="border-t border-[var(--line)] pt-4">
+              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">03 / Document</div>
+              <button type="button" onClick={handleCopyLink} className="flex w-full items-center gap-2 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Copy size={12} /> Copy room link</button>
+              <button type="button" onClick={() => setIsShareModalOpen(true)} className="flex w-full items-center gap-2 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Share size={12} /> Share room</button>
+            </section>
+          </div>
+        </aside>
 
-            {mode === 'code' && (
+        <main className="flex min-w-0 flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 xl:px-10">
+          {mode === 'text' && (
+            <div className="sticky top-12 z-10 -mx-1 sm:mx-0 flex flex-wrap items-center gap-1.5 border-y border-[var(--line)] bg-[var(--paper)] p-2" aria-label="Text formatting">
+              <div className="mr-1 flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsPreview(false)}
+                  aria-pressed={!isPreview}
+                  className={`h-7 rounded-md px-2.5 text-xs font-medium ${!isPreview ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'}`}
+                >Edit</button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreview(true)}
+                  aria-pressed={isPreview}
+                  className={`h-7 rounded-md px-2.5 text-xs font-medium ${isPreview ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'}`}
+                >Preview</button>
+              </div>
+              {!isPreview && <>
+              <label className="sr-only" htmlFor="block-format">Text style</label>
+              <select
+                id="block-format"
+                value={selectedBlockType}
+                onChange={(e) => applyBlockFormat(e.target.value as BlockType)}
+                className="h-8 max-w-[150px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 text-xs font-medium text-[var(--text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              >
+                <option value="paragraph">Paragraph</option>
+                <option value="heading1">Heading 1</option>
+                <option value="heading2">Heading 2</option>
+                <option value="heading3">Heading 3</option>
+                <option value="bulleted_list">Bulleted list</option>
+                <option value="numbered_list">Numbered list</option>
+                <option value="todo">To-do</option>
+                <option value="quote">Quote</option>
+                <option value="callout">Callout</option>
+                <option value="code">Code block</option>
+                <option value="divider">Divider</option>
+              </select>
+              <span className="mx-0.5 h-5 w-px bg-[var(--border)]" aria-hidden="true" />
+              {([
+                ['Bold', '**', '**', 'font-bold'],
+                ['Italic', '*', '*', 'italic'],
+                ['Underline', '<u>', '</u>', 'underline'],
+                ['Strikethrough', '~~', '~~', 'line-through'],
+                ['Inline code', '`', '`', 'font-mono'],
+              ] as const).map(([label, before, after, style]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => applyInlineFormat(before, after)}
+                  disabled={isReadOnly}
+                  title={`${label} (${label === 'Bold' ? 'Ctrl/⌘ + B' : label === 'Italic' ? 'Ctrl/⌘ + I' : 'select text first'})`}
+                  className={`h-8 min-w-8 rounded-lg px-2 text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-40 ${style}`}
+                >
+                  {label === 'Inline code' ? '<>' : label === 'Strikethrough' ? 'S' : label[0]}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = window.prompt('Paste a link URL');
+                  if (url) applyInlineFormat('[', `](${url})`);
+                }}
+                disabled={isReadOnly}
+                className="h-8 rounded-lg px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-40"
+                title="Add link to selected text"
+              >Link
+              </button>
+              <span className="ml-auto hidden text-[11px] text-[var(--text-subtle)] md:inline">Select text to format · Ctrl/⌘ B or I</span>
+              </>}
+            </div>
+          )}
+
+          {mode === 'code' && (
+            <div className="sticky top-12 z-10 -mx-1 sm:mx-0 flex items-center justify-between border-y border-[var(--line)] bg-[var(--paper)] p-2" aria-label="Code controls">
+              <span className="font-mono text-xs text-[var(--muted)] uppercase tracking-wider">{codeLanguage} mode</span>
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] text-[11px] font-mono text-[var(--text)] border border-[var(--border)] transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                className="px-2.5 py-1 rounded-lg bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] text-xs font-mono text-[var(--text)] border border-[var(--border)] transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
               >
                 <span>{copiedCode ? '✓ Copied' : 'Copy All Code'}</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Unified Editor Surface */}
-          <div className="flex-1 flex items-start gap-2 sm:gap-3 w-full">
+          <div className={`flex-1 flex items-start gap-2 sm:gap-3 w-full min-w-0 border border-[var(--line)] px-3 py-4 sm:px-7 sm:py-6 ${mode === 'code' ? 'bg-[#151515] text-[#eee9dc]' : 'bg-[var(--surface)] text-[var(--ink)]'}`}>
+            {mode === 'text' && isPreview ? (
+              <DocumentPreview content={text} />
+            ) : <>
             {/* Line numbers gutter in Code mode */}
             {mode === 'code' && (
-              <div className="flex flex-col text-right font-mono text-[11px] sm:text-xs text-[var(--text-subtle)] select-none py-2 pr-1.5 sm:pr-2 border-r border-[var(--border)] min-w-[1.75rem] sm:min-w-[2.5rem]">
+              <div className="flex flex-col text-right font-mono text-[11px] sm:text-xs text-white/40 select-none py-2 pr-1.5 sm:pr-2 border-r border-white/15 min-w-[1.75rem] sm:min-w-[2.5rem]">
                 {Array.from({ length: lineCount }).map((_, i) => (
                   <div key={i} className="leading-6">
                     {i + 1}
@@ -936,6 +1161,13 @@ export const Editor: React.FC<EditorProps> = ({
             <textarea
               ref={textareaRef}
               value={text}
+              onSelect={(e) => {
+                const input = e.currentTarget;
+                const lineStart = text.lastIndexOf('\n', Math.max(0, input.selectionStart - 1)) + 1;
+                const lineEndAt = text.indexOf('\n', input.selectionStart);
+                const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt);
+                setSelectedBlockType(parseDocument(line).blocks[0]?.type ?? 'paragraph');
+              }}
               onChange={(e) => applyTextChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
@@ -943,20 +1175,52 @@ export const Editor: React.FC<EditorProps> = ({
                   ? `// Write ${codeLanguage.toUpperCase()} code here...\n// Real-time synchronization active.`
                   : 'Write your document text here...\nEverything is synchronized in real time without conflicts.'
               }
-              className={`flex-1 w-full bg-transparent outline-none resize-none leading-6 ${
+              className={`flex-1 min-w-0 w-full bg-transparent outline-none resize-none leading-7 focus-visible:ring-0 ${
                 mode === 'code'
-                  ? 'font-mono text-xs sm:text-sm text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
-                  : 'font-sans text-sm sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
+                  ? 'font-mono text-xs sm:text-sm text-[#eee9dc] placeholder:text-white/35 font-normal'
+                  : 'font-sans text-[15px] sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
               }`}
               spellCheck={mode === 'text'}
               autoFocus
             />
+            </>}
+          </div>
+          <div className="mt-auto flex items-center justify-between border-t border-[var(--line)] pt-3 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)] xl:hidden">
+            <span>{wordCount} words <span className="mx-1">·</span> {lineCount} lines</span>
+            <button type="button" onClick={() => setIsMobileMenuOpen(true)} className="flex items-center gap-1.5"><Icons.Info size={12} /> Info &amp; collaborators</button>
           </div>
         </main>
+
+        <aside className="hidden border-l border-[var(--line)] px-4 py-7 xl:block">
+          <div className="sticky top-20 space-y-8">
+            <section>
+              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">06 / Collaborators</div>
+              <div className="border-y border-[var(--line)] py-3">
+                <div className="flex items-center gap-2"><span className="h-2 w-2 bg-[var(--accent)]" /><span className="text-xs font-medium">{activeUserName} <span className="text-[var(--muted)]">(you)</span></span></div>
+                <div className="mt-1 pl-4 font-mono text-[9px] text-[var(--muted)]">Editing now / {siteId || 'local'}</div>
+              </div>
+              {peers.map((peer) => <div key={peer.siteId} className="border-b border-[var(--line)] py-3"><div className="flex items-center gap-2"><span className="h-2 w-2" style={{ backgroundColor: peer.color || 'var(--accent)' }} /><span className="truncate text-xs">{peer.name || peer.siteId}</span></div><div className="mt-1 pl-4 font-mono text-[9px] text-[var(--muted)]">Connected / {peer.siteId}</div></div>)}
+              <button type="button" onClick={handleOpenEditName} className="mt-3 font-mono text-[9px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--accent)]">Edit display name →</button>
+            </section>
+            <section>
+              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">07 / Document info</div>
+              <div className="grid grid-cols-2 border-l border-t border-[var(--line)]">
+                {[[wordCount, 'WORDS'], [text.length, 'CHARACTERS'], [lineCount, 'LINES'], [`~${readingTimeMins}m`, 'READING'], [rga.getNodes().length, 'CRDT NODES'], [tombstoneCount, 'TOMBSTONES']].map(([value, label]) => <div key={String(label)} className="border-b border-r border-[var(--line)] p-2.5"><div className="font-mono text-sm">{value}</div><TechnicalLabel className="mt-1 block text-[8px]">{label}</TechnicalLabel></div>)}
+              </div>
+              <div className="mt-3 font-mono text-[9px] text-[var(--muted)]">SITE / {siteId || 'local'}</div>
+            </section>
+            <section>
+              <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">08 / Actions</div>
+              <button type="button" onClick={() => setIsShareModalOpen(true)} className="flex w-full items-center gap-2 border-b border-[var(--line)] py-2.5 text-left text-xs hover:text-[var(--accent)]"><Icons.Share size={12} /> Share / QR</button>
+              <button type="button" onClick={handleCopyLink} className="flex w-full items-center gap-2 border-b border-[var(--line)] py-2.5 text-left text-xs hover:text-[var(--accent)]"><Icons.Copy size={12} /> Copy document link</button>
+              <ExportDropdown projectId={documentId} documentTitle={roomName} getContent={() => rgaRef.current.getText()} onFlushSave={onFlushSave} size="md" className="mt-3" />
+            </section>
+          </div>
+        </aside>
       </div>
 
       {/* Floating Minimal Bottom Diagnostics & Reading Stats Pill */}
-      <footer className="sticky bottom-0 z-20 px-3 sm:px-6 py-1.5 sm:py-2 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md text-[10px] sm:text-[11px] text-[var(--text-subtle)] font-mono select-none flex items-center justify-between transition-colors gap-2 overflow-x-auto">
+      <footer className="sticky bottom-0 z-20 px-3 sm:px-6 py-2 border-t border-[var(--line)] bg-[var(--paper)] text-[9px] text-[var(--muted)] font-mono select-none flex items-center justify-between transition-colors gap-2 overflow-x-auto uppercase tracking-wider">
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <span>{wordCount} words</span>
           <span>•</span>
@@ -1337,4 +1601,3 @@ export const Editor: React.FC<EditorProps> = ({
     </div>
   );
 };
-

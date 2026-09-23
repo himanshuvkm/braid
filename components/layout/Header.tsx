@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   pageTitle,
 }) => {
   return (
-    <header className="h-14 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-30 transition-colors">
+    <header className="h-14 border-b border-[var(--line)] bg-[var(--paper)] px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-30 transition-colors">
       {/* Left: Mobile Menu Toggle & Title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onToggleMobileSidebar && (
@@ -48,16 +48,16 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <Link href="/dashboard" className="hidden sm:flex items-center gap-2 group">
-          <div className="w-6 h-6 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+          <div className="w-6 h-6 bg-[var(--accent)] text-white flex items-center justify-center">
             <Icons.Logo size={13} />
           </div>
-          <span className="font-bold text-sm tracking-tight text-[var(--text)]">Braid</span>
+          <span className="font-display text-lg tracking-tight text-[var(--ink)]">Braid</span>
         </Link>
 
         {pageTitle && (
           <>
             <span className="hidden sm:inline text-[var(--text-subtle)] text-xs">/</span>
-            <span className="text-xs sm:text-sm font-semibold text-[var(--text)] truncate max-w-[120px] sm:max-w-xs">
+            <span className="font-display text-base sm:text-lg text-[var(--ink)] truncate max-w-[120px] sm:max-w-xs">
               {pageTitle}
             </span>
           </>
@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] focus:border-[var(--border-strong)] focus:bg-[var(--surface)] text-xs text-[var(--text)] placeholder-[var(--text-subtle)] outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]/20"
+              className="w-full border-b border-[var(--line)] bg-transparent pl-8 pr-7 py-2 text-xs text-[var(--ink)] placeholder-[var(--text-subtle)] outline-none transition-all focus:border-[var(--accent)] focus:ring-0"
             />
             {searchQuery && (
               <button

@@ -17,15 +17,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div
-      className={`flex flex-col items-center justify-center p-12 sm:p-16 bg-[var(--surface)] border border-[var(--border)] rounded-2xl text-center shadow-card animate-fade-in transition-colors ${className}`}
+      className={`flex flex-col items-center justify-center border-y border-[var(--line)] bg-transparent p-12 text-center transition-colors sm:p-16 ${className}`}
     >
       {icon && (
-        <div className="w-11 h-11 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text-subtle)] mb-4 shadow-xs">
+        <div className="mb-4 flex h-11 w-11 items-center justify-center border border-[var(--line)] text-[var(--muted)]">
           {icon}
         </div>
       )}
 
-      <h3 className="text-base font-bold text-[var(--text)] tracking-tight">
+      <h3 className="font-display text-2xl text-[var(--ink)] tracking-tight">
         {title}
       </h3>
 

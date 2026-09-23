@@ -15,17 +15,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-[#191919] text-[#ffffff] border border-[#191919] hover:bg-[#2e2e2e] active:bg-[#000000] shadow-xs',
+    'bg-[#191919] editorial-primary text-white border border-[var(--accent)] hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] active:brightness-95 shadow-xs',
   secondary:
-    'bg-[#ffffff] text-[#191919] border border-[#e8e6e1] hover:border-[#d4d2cc] hover:bg-[#f4f3ef] active:bg-[#eeede8] shadow-xs',
+    'bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] active:brightness-95 shadow-xs',
   outline:
-    'bg-transparent text-[#191919] border border-[#e8e6e1] hover:border-[#191919] hover:bg-[#ffffff] active:bg-[#f4f3ef]',
+    'bg-transparent text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] active:bg-[var(--surface-hover)]',
   ghost:
-    'bg-transparent text-[#64635e] border border-transparent hover:text-[#191919] hover:bg-[#eeede8]/70 active:bg-[#eeede8]',
+    'bg-transparent text-[var(--text-muted)] border border-transparent hover:text-[var(--text)] hover:bg-[var(--surface-muted)] active:bg-[var(--surface-hover)]',
   danger:
-    'bg-red-600 text-[#ffffff] border border-red-600 hover:bg-red-700 active:bg-red-800 shadow-xs',
+    'bg-[var(--danger)] text-white border border-[var(--danger)] hover:bg-[var(--danger-hover)] active:brightness-95 shadow-xs',
   accent:
-    'bg-[#d95338] text-[#ffffff] border border-[#d95338] hover:bg-[#c24229] active:bg-[#a9341e] shadow-xs',
+    'bg-[var(--accent)] text-white border border-[var(--accent)] hover:bg-[var(--accent-hover)] active:brightness-95 shadow-xs',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -56,7 +56,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={isDisabled}
-        className={`inline-flex items-center justify-center select-none font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#191919]/25 focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] ${
+        className={`inline-flex items-center justify-center select-none font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)] disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] ${
           variantStyles[variant]
         } ${sizeStyles[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
         {...props}

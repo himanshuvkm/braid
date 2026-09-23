@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Icons } from '../../components/ui/icons';
 import { Input } from '../../components/ui/input';
-import { Button } from '../../components/ui/button';
 import { ThemeToggle } from '../../components/ui/theme-toggle';
 
 function LoginForm() {
@@ -88,30 +87,32 @@ function LoginForm() {
   const handleSocialAuth = (provider: 'google' | 'github') => {
     setError(null);
     setSocialLoading(provider);
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/auth/oauth/${provider}?from=${encodeURIComponent(from)}`;
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] flex flex-col justify-center items-center p-3.5 sm:p-6 selection:bg-[var(--accent-subtle)] selection:text-[var(--accent)] transition-colors relative mesh-bg">
+    <div className="editorial-grid relative flex min-h-screen flex-col items-center justify-center bg-[var(--background)] p-4 text-[var(--ink)] selection:bg-[var(--accent-subtle)] sm:p-8">
       {/* Top Right Theme Toggle */}
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md rounded-2xl sm:rounded-3xl p-6 sm:p-9 glass-card shadow-2xl border border-[var(--border)] flex flex-col gap-5 sm:gap-6 animate-fade-in transition-colors">
+      <div className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-9 flex flex-col gap-5 sm:gap-6">
         {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-1 sm:mb-2 hover:opacity-85 transition-opacity">
-            <div className="w-9 h-9 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text)] flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 bg-[var(--accent)] text-white flex items-center justify-center">
               <Icons.Logo size={20} />
             </div>
-            <span className="font-bold text-lg sm:text-xl tracking-tight text-[var(--text)]">Braid</span>
+            <span className="font-display text-xl tracking-tight text-[var(--ink)]">Braid</span>
           </Link>
 
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
+          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">AUTH / {tab === 'signin' ? '01' : '02'}</span>
+          <h1 className="font-display text-3xl font-normal uppercase tracking-tight text-[var(--ink)] sm:text-4xl">
             {tab === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            <p className="text-xs text-[var(--muted)] leading-relaxed">
             {tab === 'signin'
               ? 'Sign in to access your persistent workspace and documents'
               : 'Start building real-time collaborative documents'}
@@ -124,7 +125,7 @@ function LoginForm() {
             type="button"
             onClick={() => handleSocialAuth('google')}
             disabled={socialLoading !== null || isPending}
-            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="h-10 border border-[var(--line)] bg-transparent px-3 text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] flex items-center justify-center gap-2 transition-colors hover:border-[var(--accent)] cursor-pointer disabled:opacity-50"
           >
             {socialLoading === 'google' ? (
               <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
@@ -138,7 +139,7 @@ function LoginForm() {
             type="button"
             onClick={() => handleSocialAuth('github')}
             disabled={socialLoading !== null || isPending}
-            className="h-10 px-3 rounded-xl bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="h-10 border border-[var(--line)] bg-transparent px-3 text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] flex items-center justify-center gap-2 transition-colors hover:border-[var(--accent)] cursor-pointer disabled:opacity-50"
           >
             {socialLoading === 'github' ? (
               <Icons.Spinner size={15} className="animate-spin text-[var(--text)]" />
@@ -152,7 +153,7 @@ function LoginForm() {
         {/* Divider */}
         <div className="flex items-center gap-3 w-full my-0.5">
           <div className="flex-1 h-[1px] bg-[var(--border)]" />
-          <span className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wider select-none">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--muted)] select-none">
             or with email
           </span>
           <div className="flex-1 h-[1px] bg-[var(--border)]" />
@@ -210,7 +211,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={isPending || socialLoading !== null}
-            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer mt-1 disabled:opacity-50 shadow-md glow-accent"
+            className="mt-1 flex h-11 w-full items-center justify-center gap-1.5 bg-[var(--accent)] text-[10px] font-mono font-semibold uppercase tracking-wider text-white transition-colors hover:bg-[var(--accent-hover)] cursor-pointer disabled:opacity-50"
           >
             {isPending && <Icons.Spinner size={14} className="animate-spin" />}
             <span>{tab === 'signin' ? 'Sign In' : 'Sign Up'}</span>
@@ -218,7 +219,7 @@ function LoginForm() {
         </form>
 
         {/* Switcher / Bottom Tab Selector */}
-        <div className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-subtle)] pt-1">
+        <div className="flex items-center justify-center gap-1.5 border-t border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
           <span>
             {tab === 'signin' ? "Don't have an account?" : 'Already have an account?'}
           </span>
@@ -235,7 +236,7 @@ function LoginForm() {
         </div>
 
         {/* Back Link */}
-        <div className="text-center pt-2 border-t border-[var(--border)]">
+        <div className="text-center pt-2">
           <Link href="/" className="text-xs text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors inline-flex items-center gap-1.5">
             <Icons.ArrowLeft size={12} />
             <span>Back to Braid</span>

@@ -16,7 +16,6 @@ describe('Export API Authorization & Validation (/api/projects/[id]/export)', ()
   let owner: User;
   let editor: User;
   let viewer: User;
-  let stranger: User;
   let project: { id: string; name: string; content?: string };
 
   beforeEach(async () => {
@@ -27,7 +26,6 @@ describe('Export API Authorization & Validation (/api/projects/[id]/export)', ()
     owner = await adapter.createUser({ name: 'Alice Owner', email: 'alice@braid.app' });
     editor = await adapter.createUser({ name: 'Bob Editor', email: 'bob@braid.app' });
     viewer = await adapter.createUser({ name: 'Charlie Viewer', email: 'charlie@braid.app' });
-    stranger = await adapter.createUser({ name: 'Eve Stranger', email: 'eve@braid.app' });
 
     project = await adapter.createProject({ ownerId: owner.id, name: 'Quarterly Roadmap' });
     await adapter.updateProjectContent(

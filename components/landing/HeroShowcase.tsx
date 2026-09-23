@@ -1,175 +1,110 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Icons } from '../ui/icons';
+import { AccentMarker, DiagramFrame, EditorialHeading, MetadataRow, SectionNumber, TechnicalLabel, TechnicalStat } from '../design';
+
+const capabilities = [
+  ['CONFLICT-FREE SYNC', 'Concurrent edits converge through the custom RGA CRDT.'],
+  ['LIVE PRESENCE', 'See the collaborators currently working in a room.'],
+  ['DOCUMENT EXPORT', 'Carry structured documents into PDF and Word.'],
+  ['BUILT FOR DEVELOPERS', 'Move between plain text and a focused code mode.'],
+];
 
 export function HeroShowcase() {
-  const [activeTab, setActiveTab] = useState<'preview' | 'crdt' | 'export'>('preview');
-  const [simulatedCursor, setSimulatedCursor] = useState({ x: 45, y: 35 });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSimulatedCursor({
-        x: 35 + Math.random() * 30,
-        y: 25 + Math.random() * 35,
-      });
-    }, 3200);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-10 mt-6">
-      {/* Live Collaborative Interactive Preview Canvas */}
-      <div className="relative rounded-2xl sm:rounded-3xl glass-card overflow-hidden shadow-2xl border border-[var(--border)] animate-fade-in">
-        {/* Top Window Header */}
-        <div className="px-4 sm:px-6 py-3 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-md flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
-            </div>
-            <span className="text-[11px] text-[var(--text-subtle)] font-mono ml-2 hidden sm:inline">
-              braid://workspace/rfc-distributed-sync
-            </span>
-          </div>
-
-          {/* Active Collaborators Cluster */}
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-1.5 overflow-hidden items-center">
-              <div
-                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-zinc-950 ring-2 ring-[var(--surface)] shrink-0"
-                style={{ backgroundColor: '#F5C6B0' }}
-                title="Alex (Editor)"
-              >
-                A
-              </div>
-              <div
-                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-zinc-950 ring-2 ring-[var(--surface)] shrink-0"
-                style={{ backgroundColor: '#B0D0F5' }}
-                title="Jordan (Viewer)"
-              >
-                J
-              </div>
-              <div
-                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-zinc-950 ring-2 ring-[var(--surface)] shrink-0"
-                style={{ backgroundColor: '#B0F5D0' }}
-                title="Sarah (Editor)"
-              >
-                S
-              </div>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>3 peers active</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Editor Body Preview with Simulated Peer Cursors */}
-        <div className="p-5 sm:p-8 flex flex-col gap-4 font-sans text-sm relative min-h-[300px]">
-          {/* Simulated Peer Cursor 1 */}
-          <div
-            className="absolute transition-all duration-1000 ease-out pointer-events-none hidden sm:flex items-center gap-1 z-20"
-            style={{ top: `${simulatedCursor.y}%`, left: `${simulatedCursor.x}%` }}
-          >
-            <div className="w-0.5 h-5 bg-[#ff5733] shadow-xs" />
-            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-[#ff5733] text-white shadow-md">
-              Alex
-            </span>
-          </div>
-
-          {/* Heading Block */}
-          <div className="flex items-center gap-3">
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
-              # RFC: High-Throughput Replicated Growable Array (RGA)
-            </span>
-          </div>
-
-          {/* Callout Box */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-start gap-3 text-xs sm:text-sm text-[var(--text)]">
-            <Icons.Info size={18} className="text-[var(--accent)] shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold text-[var(--text)]">Deterministic Causality: </span>
-              <span className="text-[var(--text-muted)]">
-                Lamport clocks with tie-breaking site IDs guarantee mathematical convergence without central locking.
-              </span>
-            </div>
-          </div>
-
-          {/* Code Block Snippet */}
-          <div className="rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] p-4 font-mono text-xs flex flex-col gap-2 shadow-inner">
-            <div className="flex items-center justify-between pb-2 border-b border-[var(--border)] text-[11px] text-[var(--text-subtle)]">
-              <span className="text-emerald-400 font-semibold">engine.ts (TypeScript)</span>
-              <span className="text-[10px] font-mono">0.4ms avg latency</span>
-            </div>
-            <pre className="text-[var(--text)] overflow-x-auto leading-relaxed">
-              <code>{`export class RGAEngine {
-  insert(cursor: OpId | null, value: string): Op {
-    const lamport = ++this.clock;
-    return { type: 'insert', id: { siteId: this.siteId, clock: lamport }, cursor, value };
-  }
-}`}</code>
-            </pre>
-          </div>
-
-          {/* Checklist Block */}
-          <div className="flex flex-col gap-2 pt-1 text-xs sm:text-sm">
-            <div className="flex items-center gap-2 text-[var(--text)]">
-              <span className="w-4 h-4 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-[10px] font-bold">
-                ✓
-              </span>
-              <span>Sub-millisecond local character insert latency</span>
-            </div>
-            <div className="flex items-center gap-2 text-[var(--text-muted)]">
-              <span className="w-4 h-4 rounded bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[10px]" />
-              <span>Offline edits causal buffer & automatic reconnection sync</span>
-            </div>
-          </div>
+  return <div className="mt-24 flex w-full flex-col gap-24 sm:gap-32">
+    <section id="product" className="scroll-mt-24 grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+      <div className="lg:col-span-4">
+        <SectionNumber number="02" label="The workspace" />
+        <EditorialHeading className="mt-6">Your ideas.<br /><em className="font-normal text-[var(--accent)]">In real time.</em></EditorialHeading>
+        <p className="mt-5 max-w-sm text-sm leading-7 text-[var(--muted)]">A shared writing surface for technical work, with live synchronization, structured blocks, and a dedicated code mode.</p>
+        <div className="mt-8 space-y-0">
+          {capabilities.map(([label, description], i) => <div key={label} className="grid grid-cols-[2.25rem_1fr] gap-3 border-t border-[var(--line)] py-3.5">
+            <span className="font-mono text-[10px] text-[var(--accent)]">0{i + 1}</span>
+            <div><TechnicalLabel className="text-[var(--ink)]">{label}</TechnicalLabel><p className="mt-1 text-xs leading-5 text-[var(--muted)]">{description}</p></div>
+          </div>)}
         </div>
       </div>
-
-      {/* Feature Spotlight Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        {/* Card 1: CRDTs */}
-        <div className="glass-card rounded-2xl p-6 flex flex-col gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center shadow-xs">
-            <Icons.Cpu size={20} />
+      <div className="lg:col-span-8">
+        <DiagramFrame label="BRAID / DOCUMENT PREVIEW" className="shadow-[var(--shadow-card)]">
+          <div className="grid min-h-[320px] grid-cols-[2.5rem_1fr] sm:grid-cols-[3.25rem_1fr]">
+            <aside className="border-r border-[var(--line)] pr-3 text-right font-mono text-[9px] leading-7 text-[var(--text-subtle)]">01<br />02<br />03<br />04<br />05<br />06<br />07<br />08<br />09<br />10</aside>
+            <div className="min-w-0 pl-4 sm:pl-7">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-3"><TechnicalLabel>RFC / DISTRIBUTED SYNC</TechnicalLabel><span className="flex items-center gap-2 font-mono text-[9px] text-[var(--muted)]"><AccentMarker />SYNCED</span></div>
+              <h3 className="mt-7 font-display text-3xl tracking-tight sm:text-4xl">A shared document.</h3>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--muted)]">Write together without waiting for a lock. Braid merges concurrent character operations and keeps each connected editor in sync.</p>
+              <div className="mt-7 border-l-2 border-[var(--accent)] py-1 pl-4 text-sm leading-6">Changes are applied locally, then synchronized with collaborators in the room.</div>
+              <div className="mt-8 overflow-hidden border border-[#343434] bg-[#171717] text-[#ece8dc]">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2 font-mono text-[9px] text-white/55"><span>crdt / operation.ts</span><span>TypeScript</span></div>
+                <pre className="overflow-x-auto p-4 font-mono text-[10px] leading-6 sm:text-xs"><code><span className="text-[#ff805e]">const</span> operation = {'{'}<br />{'  '}type: <span className="text-[#b9c8a8]">&apos;insert&apos;</span>,<br />{'  '}siteId: <span className="text-[#b9c8a8]">&apos;site-a1c2&apos;</span>,<br />{'  '}clock: <span className="text-[#f1c77a]">42</span>,<br />{'  '}value: <span className="text-[#b9c8a8]">&apos;hello&apos;</span><br />{'}'};</code></pre>
+              </div>
+              <MetadataRow className="mt-5" items={[{ label: 'MODE', value: 'TEXT' }, { label: 'SYNC', value: 'LIVE' }, { label: 'FORMAT', value: 'RGA' }]} />
+            </div>
           </div>
-          <h3 className="text-base font-bold tracking-tight text-[var(--text)]">
-            Custom RGA CRDT Engine
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-            Deterministic convergence with Lamport causality tracking and tombstone garbage collection. Never lose an edit.
-          </p>
-        </div>
+        </DiagramFrame>
+      </div>
+    </section>
 
-        {/* Card 2: Code Studio */}
-        <div className="glass-card rounded-2xl p-6 flex flex-col gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shadow-xs">
-            <Icons.Code size={20} />
-          </div>
-          <h3 className="text-base font-bold tracking-tight text-[var(--text)]">
-            Multi-Language Code Mode
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-            Collaborate on 12+ programming languages with line numbering gutters, instant code copying, and syntax tabs.
-          </p>
-        </div>
-
-        {/* Card 3: Multi-Format Export */}
-        <div className="glass-card rounded-2xl p-6 flex flex-col gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-xs">
-            <Icons.Download size={20} />
-          </div>
-          <h3 className="text-base font-bold tracking-tight text-[var(--text)]">
-            High-Fidelity Document Export
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-            Export any room in one click to publication-ready PDF, Microsoft Word DOCX, Markdown, HTML, or Plain Text.
-          </p>
+    <section id="architecture" className="scroll-mt-24 border-y border-[var(--line)] py-8 sm:py-12">
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="lg:col-span-4"><SectionNumber number="03" label="Architecture" /><EditorialHeading className="mt-6">Built on<br /><em>CRDTs.</em></EditorialHeading><p className="mt-5 max-w-sm text-sm leading-7 text-[var(--muted)]">Braid uses a custom Replicated Growable Array, Lamport timestamps, and causal buffering to converge edits across connected peers.</p></div>
+        <div className="lg:col-span-8">
+          <DiagramFrame label="CONCURRENT OPERATIONS / CONVERGENCE" className="blueprint-canvas">
+            <div className="grid grid-cols-3 gap-2 sm:gap-5">
+              {['USER A', 'USER B', 'USER C'].map((user, i) => <div key={user} className="border border-[var(--line)] bg-[var(--surface)] p-3 text-center sm:p-4"><TechnicalLabel>{user}</TechnicalLabel><div className="mt-3 font-mono text-[10px] text-[var(--muted)]">insert({['A', 'B', 'C'][i]})</div><div className="mx-auto mt-3 h-4 w-px bg-[var(--accent)]" /><AccentMarker className="mx-auto" /></div>)}
+            </div>
+            <div className="mx-auto h-7 w-px bg-[var(--line)]" />
+            <div className="border-y border-[var(--line)] py-3 text-center"><TechnicalLabel>CONCURRENT OPERATIONS</TechnicalLabel><div className="mt-3 flex justify-center gap-2 font-mono text-xs"><span className="border border-[var(--line)] bg-[var(--surface)] px-3 py-1">op 01</span><span className="border border-[var(--line)] bg-[var(--surface)] px-3 py-1">op 02</span><span className="border border-[var(--line)] bg-[var(--surface)] px-3 py-1">op 03</span></div></div>
+            <div className="mx-auto h-7 w-px bg-[var(--line)]" />
+            <div className="mx-auto max-w-sm border border-[var(--accent)] bg-[var(--surface)] px-5 py-4 text-center"><TechnicalLabel className="text-[var(--accent)]">RGA / CRDT</TechnicalLabel><div className="mt-2 font-display text-2xl">Converged document</div><div className="mt-3 font-mono text-xs tracking-[0.2em] text-[var(--muted)]">A · B · C</div></div>
+          </DiagramFrame>
         </div>
       </div>
-    </div>
-  );
+    </section>
+
+    <section className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+      <div className="lg:col-span-4"><SectionNumber number="04" label="Capabilities" /><EditorialHeading className="mt-6">More than<br />a text editor.</EditorialHeading></div>
+      <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 lg:col-span-8">
+        {[
+          ['01', 'RICH TEXT BLOCKS', 'Headings, lists, quotes, callouts, and more.'],
+          ['02', '12+ CODE LANGUAGES', 'A code mode with language selection and line numbers.'],
+          ['03', 'REAL-TIME PRESENCE', 'See who is connected to your document.'],
+          ['04', 'PDF / DOCX', 'Export polished documents for sharing.'],
+        ].map(([number, title, detail]) => <div key={number} className="grid grid-cols-[2.5rem_1fr] gap-3 border-t border-[var(--line)] py-5 sm:px-4"><span className="font-mono text-[10px] text-[var(--accent)]">{number}</span><div><TechnicalLabel className="text-[var(--ink)]">{title}</TechnicalLabel><p className="mt-2 max-w-xs text-xs leading-5 text-[var(--muted)]">{detail}</p></div></div>)}
+      </div>
+    </section>
+
+    <section className="border-y border-[var(--line)] py-8 sm:py-12">
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="lg:col-span-4"><SectionNumber number="05" label="A focused workflow" /><EditorialHeading className="mt-6">Designed for<br /><em>how you work.</em></EditorialHeading></div>
+        <div className="grid gap-0 sm:grid-cols-2 lg:col-span-8">
+          {[
+            [<Icons.List key="outline" size={17} />, 'DOCUMENT OUTLINE', 'Navigate document structure at a glance.'],
+            [<Icons.Code key="code" size={17} />, 'MULTI-LANGUAGE SYNTAX', 'Switch from prose to a dedicated code surface.'],
+            [<Icons.Users key="collab" size={17} />, 'TEAM COLLABORATION', 'Share a room and work alongside connected peers.'],
+            [<Icons.FileText key="export" size={17} />, 'DOCUMENT EXPORT', 'Take your work with you in PDF or DOCX.'],
+          ].map(([icon, title, detail]) => <div key={String(title)} className="flex gap-4 border-t border-[var(--line)] py-5 sm:px-4"><span className="text-[var(--accent)]">{icon}</span><div><TechnicalLabel className="text-[var(--ink)]">{title}</TechnicalLabel><p className="mt-2 text-xs leading-5 text-[var(--muted)]">{detail}</p></div></div>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+      <div className="lg:col-span-4"><SectionNumber number="06" label="Open source by design" /><EditorialHeading className="mt-6">A system built<br />to be understood.</EditorialHeading><p className="mt-5 text-sm leading-7 text-[var(--muted)]">Explore the project, its architecture, and the choices behind the editor.</p><a href="https://github.com/himanshuvkm/braid" target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center gap-2 border-b border-[var(--accent)] pb-1 font-mono text-[10px] uppercase tracking-wider">VIEW PROJECT <Icons.ArrowRight size={12} className="text-[var(--accent)]" /></a></div>
+      <div className="lg:col-span-8"><DiagramFrame label="BRAID / SYSTEM MAP" className="blueprint-canvas"><div className="grid gap-3 sm:grid-cols-3"><div className="border border-[var(--line)] bg-[var(--surface)] p-4"><TechnicalLabel>CLIENTS</TechnicalLabel><p className="mt-3 text-xs">Text editor<br />Code editor<br />Presence</p></div><div className="flex flex-col justify-center text-center"><div className="font-mono text-[10px] text-[var(--accent)]">WEBSOCKET SYNC</div><div className="my-2 h-px bg-[var(--accent)]" /><div className="font-mono text-[10px] text-[var(--muted)]">RGA OPERATIONS</div></div><div className="border border-[var(--line)] bg-[var(--surface)] p-4"><TechnicalLabel>STORAGE</TechnicalLabel><p className="mt-3 text-xs">SQLite<br />PostgreSQL<br />Document state</p></div></div></DiagramFrame></div>
+    </section>
+
+    <section className="border-y border-[var(--line)] py-8 sm:py-12">
+      <SectionNumber number="07" label="From the project" />
+      <div className="mt-8 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
+        <TechnicalStat value="<1ms" label="Local insert latency" />
+        <TechnicalStat value="12+" label="Code languages" />
+        <TechnicalStat value="170+" label="Automated tests" />
+        <TechnicalStat value="∞" label="Ways to collaborate" />
+      </div>
+      <p className="mt-6 font-mono text-[9px] text-[var(--muted)]">Performance and test figures as documented in the project README.</p>
+    </section>
+
+    <section className="flex flex-col items-start justify-between gap-7 pb-8 sm:flex-row sm:items-end">
+      <div><SectionNumber number="08" label="Start here" /><EditorialHeading className="mt-6">Build together.<br /><em>Without limits.</em></EditorialHeading></div>
+      <a href="#open-braid" className="inline-flex h-12 items-center gap-4 bg-[var(--accent)] px-5 font-mono text-[11px] font-semibold uppercase tracking-wider text-white transition-colors hover:bg-[var(--accent-hover)]">OPEN BRAID <Icons.ArrowRight size={14} /></a>
+    </section>
+  </div>;
 }

@@ -110,7 +110,8 @@ export async function generatePdf(docState: DocumentState): Promise<Buffer> {
     try {
       const doc = new PDFDocument({
         size: 'A4',
-        margin: 54, // 0.75 in
+        margin: 58,
+        margins: { top: 78, bottom: 64, left: 58, right: 58 },
         bufferPages: true,
         info: {
           Title: docState.title || 'Untitled Document',
@@ -124,21 +125,31 @@ export async function generatePdf(docState: DocumentState): Promise<Buffer> {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', (err) => reject(err));
 
-      const margin = 54;
+      const margin = 58;
       const contentWidth = doc.page.width - margin * 2;
       let numberedListCounter = 0;
 
-      // 1. Document Title
+      // A restrained title treatment gives exports a finished, editorial feel.
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#E45735')
+        .text('BRAID  /  DOCUMENT', margin, 34, { characterSpacing: 1.2 });
+      doc.font('Helvetica').fontSize(8.5).fillColor('#85858B')
+        .text(new Date().toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric' }), margin, 49);
+
+      // Document title
       const title = docState.title || 'Untitled Document';
       doc
         .font('Helvetica-Bold')
-        .fontSize(24)
-        .fillColor('#191919')
+        .fontSize(27)
+        .fillColor('#18181B')
         .text(title, {
-          lineGap: 4,
+          lineGap: 5,
+          width: contentWidth,
         });
-
-      doc.moveDown(0.6);
+      const ruleY = doc.y + 13;
+      doc.moveTo(margin, ruleY).lineTo(margin + 54, ruleY)
+        .lineWidth(3).strokeColor('#E45735').stroke();
+      doc.y = ruleY + 27;
+      doc.x = margin;
 
       // 2. Render each block
       for (const block of docState.blocks) {
@@ -374,19 +385,31 @@ export async function generatePdf(docState: DocumentState): Promise<Buffer> {
       const range = doc.bufferedPageRange();
       for (let i = range.start; i < range.start + range.count; i++) {
         doc.switchToPage(i);
+        const savedX = doc.x;
+        const savedY = doc.y;
+        if (i > range.start) {
+          doc.font('Helvetica-Bold').fontSize(8).fillColor('#E45735')
+            .text('BRAID', margin, 34, { continued: true });
+          doc.font('Helvetica').fontSize(8).fillColor('#85858B')
+            .text(`  /  ${title}`, { width: contentWidth });
+          doc.moveTo(margin, 51).lineTo(margin + contentWidth, 51)
+            .lineWidth(0.5).strokeColor('#E8E8EB').stroke();
+        }
         doc
           .font('Helvetica')
-          .fontSize(8.5)
-          .fillColor('#9A9994')
+          .fontSize(8)
+          .fillColor('#85858B')
           .text(
-            `Braid  •  Page ${i + 1} of ${range.count}`,
+            `${title}  ·  ${i - range.start + 1} / ${range.count}`,
             margin,
-            doc.page.height - margin + 15,
+            doc.page.height - 38,
             {
               width: contentWidth,
-              align: 'center',
+              align: 'right',
             }
           );
+        doc.x = savedX;
+        doc.y = savedY;
       }
 
       doc.end();

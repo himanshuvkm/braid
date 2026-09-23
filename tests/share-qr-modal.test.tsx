@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import QRCode from 'qrcode';
 import { ShareModal } from '../components/ui/share-modal';

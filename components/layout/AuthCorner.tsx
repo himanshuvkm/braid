@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icons } from '../ui/icons';
@@ -11,33 +11,29 @@ interface AuthCornerProps {
   initialUser?: User | null;
   className?: string;
   onLogoutSuccess?: () => void;
+  layout?: 'floating' | 'inline';
 }
 
-export function AuthCorner({ initialUser, className = '', onLogoutSuccess }: AuthCornerProps) {
+export function AuthCorner({ initialUser, className = '', onLogoutSuccess, layout = 'floating' }: AuthCornerProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser || null);
-  const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user || null);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    let isMounted = true;
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.user) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -56,7 +52,7 @@ export function AuthCorner({ initialUser, className = '', onLogoutSuccess }: Aut
 
 
   return (
-    <div className={`fixed top-3 left-3 sm:top-4 sm:left-4 z-30 flex items-center gap-2 ${className}`}>
+    <div className={`${layout === 'floating' ? 'fixed top-3 left-3 sm:top-4 sm:left-4 z-30' : 'flex'} items-center gap-2 ${className}`}>
       {user ? (
         /* Logged In View */
         <div className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-[var(--surface)]/90 backdrop-blur-md border border-[var(--border)] shadow-xs animate-fade-in text-xs">

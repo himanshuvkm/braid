@@ -1,6 +1,4 @@
-import React from 'react';
 import { redirect } from 'next/navigation';
-import { Editor } from '../../../components/editor/Editor';
 
 interface DocPageProps {
   params: Promise<{ id: string }>;

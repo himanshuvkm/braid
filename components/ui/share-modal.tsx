@@ -35,7 +35,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     if (!isOpen || !documentId) return;
 
     let isMounted = true;
-    setIsLoadingQr(true);
 
     const fullUrl = typeof window !== 'undefined'
       ? `${window.location.origin}/${encodeURIComponent(documentId)}`
@@ -105,7 +104,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       <div className="flex flex-col items-center gap-5 py-2">
         {/* QR Code Container with High-Contrast Card */}
         <div className="flex flex-col items-center gap-2.5">
-          <div className="relative p-3 rounded-2xl bg-white border border-[var(--border)] shadow-md flex items-center justify-center min-w-[210px] min-h-[210px]">
+          <div className="relative border border-[var(--line)] bg-white p-3 flex items-center justify-center min-w-[210px] min-h-[210px]">
             {isLoadingQr ? (
               <div className="flex flex-col items-center justify-center gap-2 text-zinc-500 py-12">
                 <Icons.Spinner size={24} className="animate-spin text-zinc-600" />
@@ -118,7 +117,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 alt={`QR code to join room ${documentId}`}
                 width={200}
                 height={200}
-                className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
+                className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
               />
             ) : (
               <div className="text-xs text-rose-500 py-12">
@@ -127,8 +126,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             )}
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface-muted)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-subtle)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 border-y border-[var(--line)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--muted)]">
+            <span className="w-1.5 h-1.5 bg-[var(--accent)]" />
             <span>Instant Mobile &amp; Guest Connection</span>
           </div>
         </div>
@@ -136,9 +135,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Room Info Pill & Actions */}
         <div className="w-full flex flex-col gap-3">
           {/* Document Title & ID summary */}
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-xs">
+          <div className="flex items-center justify-between border-y border-[var(--line)] p-2.5 text-xs">
             <div className="flex flex-col min-w-0 pr-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-subtle)]">Room</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--muted)]">Room</span>
               <span className="font-semibold text-[var(--text)] truncate">
                 {documentTitle || documentId}
               </span>
@@ -146,7 +145,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <button
               type="button"
               onClick={handleCopyId}
-              className="px-2.5 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--text)] transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="flex shrink-0 items-center gap-1.5 border border-[var(--line)] px-2.5 py-1 font-mono text-[10px] text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] cursor-pointer"
               title="Copy Room ID"
             >
               <span>{documentId}</span>
@@ -160,7 +159,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
           {/* Share Link Input with Direct Copy */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-[var(--text-muted)]">
+            <label className="font-mono text-[9px] uppercase tracking-wider text-[var(--muted)]">
               Direct Room Link
             </label>
             <div className="flex items-center gap-2">
@@ -170,7 +169,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   readOnly
                   value={shareUrl}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
-                  className="w-full pl-3 pr-8 py-2 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] text-xs font-mono text-[var(--text)] outline-none select-all focus:border-[var(--border-strong)]"
+                  className="w-full border border-[var(--line)] bg-transparent pl-3 pr-8 py-2 text-[10px] font-mono text-[var(--ink)] outline-none select-all focus:border-[var(--accent)]"
                 />
               </div>
 
@@ -188,7 +187,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="w-full flex items-center justify-between pt-3 border-t border-[var(--border)] gap-2">
+        <div className="w-full flex items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
           {qrDataUrl ? (
             <Button
               variant="ghost"

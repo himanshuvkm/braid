@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DOCUMENT_TEMPLATES, getTemplateById, type TemplateItem } from '../lib/templates';
+import { DOCUMENT_TEMPLATES, getTemplateById } from '../lib/templates';
 
 describe('Document Templates Library', () => {
   it('contains blank, rfc, code sandbox, and meeting notes templates', () => {
