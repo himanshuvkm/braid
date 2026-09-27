@@ -37,12 +37,12 @@ describe('Complete UI/UX Redesign Verification', () => {
     updated_at: Date.now(),
   };
 
-  it('renders minimal dark instant room creator with name prompt', () => {
+  it('renders landing page with instant room creation and editorial aesthetic', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
-    expect(html).toContain('Your name...');
+    expect(html).toContain('ENTER YOUR NAME');
     expect(html).toContain('Start Writing');
-    expect(html).toContain('Have a room code? Join room');
+    expect(html).toContain('Real-Time Collaboration');
   });
 
   it('renders redesigned Login Page with tabbed auth, Google and GitHub sign in', () => {
@@ -70,7 +70,6 @@ describe('Complete UI/UX Redesign Verification', () => {
       />
     );
     expect(html).toContain('Braid Workspace');
-    expect(html).toContain('Welcome back');
     expect(html).toContain('Himanshu');
     expect(html).toContain('All Documents');
     expect(html).toContain('My Documents');

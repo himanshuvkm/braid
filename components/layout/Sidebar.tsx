@@ -6,6 +6,7 @@ import type { User } from '../../lib/db';
 import { Icons } from '../ui/icons';
 import { IconButton } from '../ui/icon-button';
 import { Avatar } from '../ui/avatar';
+import { ThemeToggle } from '../ui/theme-toggle';
 
 export type DashboardFilter = 'all' | 'owned' | 'shared' | 'recent';
 
@@ -197,15 +198,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <IconButton
-              aria-label="Sign out of account"
-              variant="ghost"
-              size="sm"
-              onClick={onSignOut}
-              className="text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--surface-muted)]"
-            >
-              <Icons.LogOut size={14} />
-            </IconButton>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <IconButton
+                aria-label="Sign out of account"
+                variant="ghost"
+                size="sm"
+                onClick={onSignOut}
+                className="text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--surface-muted)]"
+              >
+                <Icons.LogOut size={14} />
+              </IconButton>
+            </div>
           </div>
         </div>
       </aside>

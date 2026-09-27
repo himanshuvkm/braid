@@ -61,14 +61,13 @@ describe('Phase 2 Product UX & Dashboard Verification', () => {
     },
   ];
 
-  describe('Minimal Dark Instant Room Creator Experience', () => {
-    it('renders clean minimal dark name prompt and instant room creation flow', () => {
+  describe('Redesigned Landing Room Creator Experience', () => {
+    it('renders clean name prompt and instant room creation flow', () => {
       const html = renderToString(<Home />);
       expect(html).toContain('Braid');
-      expect(html).toContain('Minimal real-time collaborative editor');
-      expect(html).toContain('Your name...');
+      expect(html).toContain('ENTER YOUR NAME');
       expect(html).toContain('Start Writing');
-      expect(html).toContain('Have a room code? Join room');
+      expect(html).toContain('Real-Time Collaboration');
     });
   });
 
@@ -78,9 +77,7 @@ describe('Phase 2 Product UX & Dashboard Verification', () => {
         <DashboardClient user={mockUser} initialProjects={sampleProjects} />
       );
       expect(html).toContain('Braid Workspace');
-      expect(html).toContain('Welcome back');
       expect(html).toContain('Himanshu');
-      expect(html).toContain('in your collaborative workspace');
       expect(html).toContain('Recently updated');
       expect(html).toContain('New document');
     });

@@ -15,7 +15,6 @@ import { Modal } from '../ui/modal';
 import { Input } from '../ui/input';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { ShareModal } from '../ui/share-modal';
-import { PreviousDocumentsSidebar } from '../layout/PreviousDocumentsSidebar';
 import { parseDocument, parseInlineFormatting, type BlockType } from '../../lib/document-model';
 import { TechnicalLabel } from '../design';
 
@@ -1035,27 +1034,7 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Main Full-Screen Unified Editor Canvas */}
-      <div className="grid flex-1 grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_250px]">
-        <aside className="hidden border-r border-[var(--line)] px-4 py-7 xl:block">
-          <div className="sticky top-20 flex flex-col gap-8">
-            <section>
-              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">01 / Workspace</div>
-              <Link href="/dashboard" className="flex items-center gap-2 border-y border-[var(--line)] py-3 text-xs hover:text-[var(--accent)]"><Icons.Folder size={13} /><span>All documents</span></Link>
-              <div className="mt-5 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">02 / Recent</div>
-              <div className="mt-2 border-y border-[var(--accent)] bg-[var(--accent-subtle)] px-2.5 py-3">
-                <span className="block truncate text-xs font-medium">{roomName}</span>
-                <span className="mt-1 block truncate font-mono text-[9px] text-[var(--muted)]">{documentId}</span>
-              </div>
-              <button type="button" onClick={() => setIsMobileMenuOpen(true)} className="mt-3 flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Menu size={12} /> Previous documents</button>
-            </section>
-            <section className="border-t border-[var(--line)] pt-4">
-              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">03 / Document</div>
-              <button type="button" onClick={handleCopyLink} className="flex w-full items-center gap-2 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Copy size={12} /> Copy room link</button>
-              <button type="button" onClick={() => setIsShareModalOpen(true)} className="flex w-full items-center gap-2 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"><Icons.Share size={12} /> Share room</button>
-            </section>
-          </div>
-        </aside>
-
+      <div className="grid flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px]">
         <main className="flex min-w-0 flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 xl:px-10">
           {mode === 'text' && (
             <div className="sticky top-12 z-10 -mx-1 sm:mx-0 flex flex-wrap items-center gap-1.5 border-y border-[var(--line)] bg-[var(--paper)] p-2" aria-label="Text formatting">
@@ -1191,8 +1170,8 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
         </main>
 
-        <aside className="hidden border-l border-[var(--line)] px-4 py-7 xl:block">
-          <div className="sticky top-20 space-y-8">
+        <aside className="hidden xl:flex min-h-0 flex-col border-l border-[var(--line)] px-4 py-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-7">
             <section>
               <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">06 / Collaborators</div>
               <div className="border-y border-[var(--line)] py-3">
@@ -1202,19 +1181,17 @@ export const Editor: React.FC<EditorProps> = ({
               {peers.map((peer) => <div key={peer.siteId} className="border-b border-[var(--line)] py-3"><div className="flex items-center gap-2"><span className="h-2 w-2" style={{ backgroundColor: peer.color || 'var(--accent)' }} /><span className="truncate text-xs">{peer.name || peer.siteId}</span></div><div className="mt-1 pl-4 font-mono text-[9px] text-[var(--muted)]">Connected / {peer.siteId}</div></div>)}
               <button type="button" onClick={handleOpenEditName} className="mt-3 font-mono text-[9px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--accent)]">Edit display name →</button>
             </section>
-            <section>
-              <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">07 / Document info</div>
-              <div className="grid grid-cols-2 border-l border-t border-[var(--line)]">
-                {[[wordCount, 'WORDS'], [text.length, 'CHARACTERS'], [lineCount, 'LINES'], [`~${readingTimeMins}m`, 'READING'], [rga.getNodes().length, 'CRDT NODES'], [tombstoneCount, 'TOMBSTONES']].map(([value, label]) => <div key={String(label)} className="border-b border-r border-[var(--line)] p-2.5"><div className="font-mono text-sm">{value}</div><TechnicalLabel className="mt-1 block text-[8px]">{label}</TechnicalLabel></div>)}
-              </div>
-              <div className="mt-3 font-mono text-[9px] text-[var(--muted)]">SITE / {siteId || 'local'}</div>
-            </section>
-            <section>
-              <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">08 / Actions</div>
-              <button type="button" onClick={() => setIsShareModalOpen(true)} className="flex w-full items-center gap-2 border-b border-[var(--line)] py-2.5 text-left text-xs hover:text-[var(--accent)]"><Icons.Share size={12} /> Share / QR</button>
-              <button type="button" onClick={handleCopyLink} className="flex w-full items-center gap-2 border-b border-[var(--line)] py-2.5 text-left text-xs hover:text-[var(--accent)]"><Icons.Copy size={12} /> Copy document link</button>
-              <ExportDropdown projectId={documentId} documentTitle={roomName} getContent={() => rgaRef.current.getText()} onFlushSave={onFlushSave} size="md" className="mt-3" />
-            </section>
+
+            {/* Dashboard Link — anchored inside the collaborator sidebar */}
+            <div className="mt-auto pt-2">
+              <Link
+                href="/dashboard"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3 py-2.5 text-xs font-medium text-[var(--text)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+              >
+                <Icons.Home size={13} />
+                <span>Dashboard</span>
+              </Link>
+            </div>
           </div>
         </aside>
       </div>
@@ -1587,9 +1564,6 @@ export const Editor: React.FC<EditorProps> = ({
           </aside>
         </>
       )}
-
-      {/* Floating Previous Documents Sidebar in Bottom-Right Corner */}
-      <PreviousDocumentsSidebar />
 
       {/* Share Room QR Code & Link Modal */}
       <ShareModal

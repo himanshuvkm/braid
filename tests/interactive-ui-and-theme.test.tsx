@@ -1,8 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { ThemeProvider } from '../components/ui/theme-provider';
+import { ThemeProvider, useTheme } from '../components/ui/theme-provider';
 import { ThemeToggle } from '../components/ui/theme-toggle';
+import { Sidebar } from '../components/layout/Sidebar';
 import { SlashMenu } from '../components/editor/SlashMenu';
 import { BlockItem } from '../components/editor/BlockItem';
 import { FormatToolbar } from '../components/editor/FormatToolbar';
@@ -39,6 +40,43 @@ describe('Interactive Minimal UI & Theme System', () => {
       expect(html).toContain('Light');
       expect(html).toContain('Dark');
       expect(html).toContain('Auto');
+    });
+
+    it('provides safe fallback from useTheme hook outside provider', () => {
+      function ThemeConsumer() {
+        const themeContext = useTheme();
+        return <div>{`theme:${themeContext.theme}|resolved:${themeContext.resolvedTheme}`}</div>;
+      }
+
+      const html = renderToString(<ThemeConsumer />);
+      expect(html).toContain('theme:light|resolved:light');
+    });
+
+    it('renders ThemeToggle in the Sidebar footer alongside user account', () => {
+      const mockUser = {
+        id: 'usr-1',
+        name: 'Alice',
+        email: 'alice@example.com',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      };
+
+      const html = renderToString(
+        <ThemeProvider>
+          <Sidebar
+            user={mockUser}
+            activeFilter="all"
+            onFilterChange={() => {}}
+            counts={{ all: 5, owned: 3, shared: 2 }}
+            onCreateDocument={() => {}}
+            onSignOut={() => {}}
+          />
+        </ThemeProvider>
+      );
+
+      expect(html).toContain('Toggle theme');
+      expect(html).toContain('Toggle color theme');
+      expect(html).toContain('Sign out of account');
     });
   });
 

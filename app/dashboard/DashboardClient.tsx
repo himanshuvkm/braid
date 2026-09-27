@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, ProjectWithRole } from '../../lib/db';
-import { DOCUMENT_TEMPLATES, type TemplateItem } from '../../lib/templates';
+import type { TemplateItem } from '../../lib/templates';
 import { Icons } from '../../components/ui/icons';
 import { Button } from '../../components/ui/button';
 import { IconButton } from '../../components/ui/icon-button';
@@ -306,77 +306,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
       onSearchChange={setSearchQuery}
       pageTitle={pageTitle}
     >
-      <main className="editorial-grid p-4 sm:p-8 lg:p-10 max-w-[1440px] w-full mx-auto flex flex-col gap-6 sm:gap-8 flex-1">
-        {/* Obsidian Studio Greeting & Workspace Summary Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-y border-[var(--line)] bg-[var(--paper)] py-6 sm:py-8 relative overflow-hidden">
-          <div className="flex items-center gap-4 z-10">
-            <Avatar name={user.name} size="lg" className="ring-2 ring-[var(--accent)]/40 shrink-0" />
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">01 / Your workspace</span>
-              <h1 className="font-display text-3xl font-normal tracking-tight text-[var(--ink)] sm:text-4xl">
-                Welcome back, {user.name}
-              </h1>
-              <p className="text-xs text-[var(--muted)]">
-                {projects.length} {projects.length === 1 ? 'document' : 'documents'} in your collaborative workspace
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto z-10">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => handleCreateProject()}
-              isLoading={isCreating}
-              leftIcon={<Icons.Plus size={14} />}
-              className="glow-accent"
-            >
-              New document
-            </Button>
-          </div>
-        </div>
-
-        {/* Starter Templates Quick-Launch Strip */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
-              02 / Quick start templates
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 border-l border-t border-[var(--line)]">
-            {DOCUMENT_TEMPLATES.map((tmpl) => (
-              <button
-                key={tmpl.id}
-                type="button"
-                onClick={() => handleCreateProject(tmpl)}
-                disabled={isCreating}
-                className="bg-[var(--surface)] p-4 text-left flex flex-col gap-2 border-r border-b border-[var(--line)] hover:border-[var(--accent)] transition-colors cursor-pointer group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--text)] group-hover:scale-105 group-hover:bg-[var(--accent-subtle)] group-hover:text-[var(--accent)] transition-all">
-                  {tmpl.id === 'code' ? (
-                    <Icons.Code size={14} />
-                  ) : tmpl.id === 'rfc' ? (
-                    <Icons.Cpu size={14} />
-                  ) : tmpl.id === 'meeting' ? (
-                    <Icons.Users size={14} />
-                  ) : (
-                    <Icons.Document size={14} />
-                  )}
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold text-xs text-[var(--text)] group-hover:text-[var(--accent)] truncate transition-colors">
-                    {tmpl.title}
-                  </span>
-                  <span className="text-[10px] text-[var(--text-subtle)] line-clamp-1 mt-0.5">
-                    {tmpl.description}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
+      <main className="editorial-grid p-4 sm:p-8 lg:p-10 max-w-[1440px] w-full mx-auto flex flex-col gap-6 flex-1">
         {/* Workspace Toolbar: Search / Filter summary, Sort dropdown, and Grid/List toggle */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[var(--line)] py-3">
           <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-[var(--ink)]">
@@ -506,7 +436,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             <EmptyState
               icon={<Icons.Document size={20} />}
               title="No documents yet"
-              description="Start writing in real time with Notion-style blocks and conflict-free collaboration."
+              description="Start writing in real time with conflict-free collaboration."
               action={
                 <Button
                   variant="primary"

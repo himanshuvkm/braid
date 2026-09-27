@@ -26,7 +26,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     return 'light';
   });
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+      if (stored === 'dark') return 'dark';
+      if (stored === 'light') return 'light';
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    } catch {}
+    return 'light';
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -88,7 +97,7 @@ export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {
     return {
-      theme: 'dark' as Theme,
+      theme: 'light' as Theme,
       resolvedTheme: 'light' as 'dark' | 'light',
       setTheme: () => {},
       toggleTheme: () => {},

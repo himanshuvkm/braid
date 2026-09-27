@@ -44,12 +44,12 @@ describe('Auth Corner, Previous Documents Sidebar, and Theme Consistency', () =>
     expect(html).toContain('Previous Documents');
   });
 
-  it('renders Home landing page with theme tokens, AuthCorner, and PreviousDocumentsSidebar', () => {
+  it('renders Home landing page with editorial theme tokens and without PreviousDocumentsSidebar', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
     expect(html).toContain('Start Writing');
     expect(html).toContain('bg-[var(--background)]');
-    expect(html).toContain('Previous Documents');
+    expect(html).not.toContain('Open previous documents drawer');
   });
 
   it('renders Login page matching the semantic theme system and surface cards', () => {

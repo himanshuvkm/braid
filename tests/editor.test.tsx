@@ -70,12 +70,12 @@ describe('Direct Room URL Identity Flow and Join Gate', () => {
 });
 
 describe('Landing Page and Room Flows', () => {
-  it('renders the minimal dark Home Page with instant room creation and name prompt', () => {
+  it('renders the Home Page with instant room creation and name prompt', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Braid');
-    expect(html).toContain('Your name...');
+    expect(html).toContain('ENTER YOUR NAME');
     expect(html).toContain('Start Writing');
-    expect(html).toContain('Have a room code? Join room');
+    expect(html).toContain('Real-Time Collaboration');
   });
 
   it('room-storage utility generates valid room IDs and manages storage', () => {
@@ -160,10 +160,8 @@ describe('Mobile Header De-cluttering and Sidebar Menu', () => {
     expect(html).toContain('aria-label="Open document sidebar menu"');
     expect(html).toContain('doc-mobile-clean');
 
-    // Desktop elements are tucked into hidden sm: classes
-    expect(html).toContain('hidden sm:flex');
-
-    // Previous documents trigger and main editor elements remain available
-    expect(html).toContain('Previous Documents');
+    // Dashboard trigger and main editor elements remain available
+    expect(html).toContain('Dashboard');
+    expect(html).toContain('href="/dashboard"');
   });
 });
