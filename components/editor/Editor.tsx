@@ -680,9 +680,9 @@ export const Editor: React.FC<EditorProps> = ({
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[var(--background)] text-[var(--text)] selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors">
+    <div className="flex flex-col h-screen max-h-screen sm:h-dvh sm:max-h-dvh w-full overflow-hidden bg-[var(--background)] text-[var(--text)] selection:bg-[var(--surface-hover)] selection:text-[var(--text)] transition-colors">
       {/* Top Workspace Navigation Bar */}
-      <header className="sticky top-0 z-30 px-3 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper)] select-none transition-colors gap-2 sm:gap-3">
+      <header className="shrink-0 z-30 px-3 sm:px-6 h-12 flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper)] select-none transition-colors gap-2 sm:gap-3">
         {/* Mobile Left: Sidebar opening button + Room ID */}
         <div className="flex sm:hidden items-center gap-2 min-w-0">
           <button
@@ -1034,10 +1034,10 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Main Full-Screen Unified Editor Canvas */}
-      <div className="grid flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px]">
-        <main className="flex min-w-0 flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 xl:px-10">
+      <div className="flex flex-1 min-h-0 min-w-0 flex-col xl:flex-row overflow-hidden">
+        <main className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
           {mode === 'text' && (
-            <div className="sticky top-12 z-10 -mx-1 sm:mx-0 flex flex-wrap items-center gap-1.5 border-y border-[var(--line)] bg-[var(--paper)] p-2" aria-label="Text formatting">
+            <div className="shrink-0 flex flex-wrap items-center gap-1.5 border-b border-[var(--line)] bg-[var(--paper)] px-3 py-2 sm:px-6 z-10" aria-label="Text formatting">
               <div className="mr-1 flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-0.5">
                 <button
                   type="button"
@@ -1108,7 +1108,7 @@ export const Editor: React.FC<EditorProps> = ({
           )}
 
           {mode === 'code' && (
-            <div className="sticky top-12 z-10 -mx-1 sm:mx-0 flex items-center justify-between border-y border-[var(--line)] bg-[var(--paper)] p-2" aria-label="Code controls">
+            <div className="shrink-0 flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper)] px-3 py-2 sm:px-6 z-10" aria-label="Code controls">
               <span className="font-mono text-xs text-[var(--muted)] uppercase tracking-wider">{codeLanguage} mode</span>
               <button
                 type="button"
@@ -1120,57 +1120,81 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
           )}
 
-          {/* Unified Editor Surface */}
-          <div className={`flex-1 flex items-start gap-2 sm:gap-3 w-full min-w-0 border border-[var(--line)] px-3 py-4 sm:px-7 sm:py-6 ${mode === 'code' ? 'bg-[#151515] text-[#eee9dc]' : 'bg-[var(--surface)] text-[var(--ink)]'}`}>
-            {mode === 'text' && isPreview ? (
-              <DocumentPreview content={text} />
-            ) : <>
-            {/* Line numbers gutter in Code mode */}
-            {mode === 'code' && (
-              <div className="flex flex-col text-right font-mono text-[11px] sm:text-xs text-white/40 select-none py-2 pr-1.5 sm:pr-2 border-r border-white/15 min-w-[1.75rem] sm:min-w-[2.5rem]">
-                {Array.from({ length: lineCount }).map((_, i) => (
-                  <div key={i} className="leading-6">
-                    {i + 1}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Scrollable Document Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 xl:p-8 flex flex-col">
+            {/* Unified Editor Surface */}
+            <div className={`min-h-full flex-1 flex items-start gap-2 sm:gap-3 w-full min-w-0 border border-[var(--line)] p-4 sm:p-6 ${mode === 'code' ? 'bg-[#151515] text-[#eee9dc]' : 'bg-[var(--surface)] text-[var(--ink)]'}`}>
+              {mode === 'text' && isPreview ? (
+                <DocumentPreview content={text} />
+              ) : <>
+              {/* Line numbers gutter in Code mode */}
+              {mode === 'code' && (
+                <div className="flex flex-col text-right font-mono text-[11px] sm:text-xs text-white/40 select-none py-1 pr-1.5 sm:pr-2 border-r border-white/15 min-w-[1.75rem] sm:min-w-[2.5rem] shrink-0">
+                  {Array.from({ length: lineCount }).map((_, i) => (
+                    <div key={i} className="leading-7">
+                      {i + 1}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            {/* Continuous Full-Screen Textarea */}
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onSelect={(e) => {
-                const input = e.currentTarget;
-                const lineStart = text.lastIndexOf('\n', Math.max(0, input.selectionStart - 1)) + 1;
-                const lineEndAt = text.indexOf('\n', input.selectionStart);
-                const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt);
-                setSelectedBlockType(parseDocument(line).blocks[0]?.type ?? 'paragraph');
-              }}
-              onChange={(e) => applyTextChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                mode === 'code'
-                  ? `// Write ${codeLanguage.toUpperCase()} code here...\n// Real-time synchronization active.`
-                  : 'Write your document text here...\nEverything is synchronized in real time without conflicts.'
-              }
-              className={`flex-1 min-w-0 w-full bg-transparent outline-none resize-none leading-7 focus-visible:ring-0 ${
-                mode === 'code'
-                  ? 'font-mono text-xs sm:text-sm text-[#eee9dc] placeholder:text-white/35 font-normal'
-                  : 'font-sans text-[15px] sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
-              }`}
-              spellCheck={mode === 'text'}
-              autoFocus
-            />
-            </>}
+              {/* Continuous Full-Screen Textarea */}
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onSelect={(e) => {
+                  const input = e.currentTarget;
+                  const lineStart = text.lastIndexOf('\n', Math.max(0, input.selectionStart - 1)) + 1;
+                  const lineEndAt = text.indexOf('\n', input.selectionStart);
+                  const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt);
+                  setSelectedBlockType(parseDocument(line).blocks[0]?.type ?? 'paragraph');
+                }}
+                onChange={(e) => applyTextChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  mode === 'code'
+                    ? `// Write ${codeLanguage.toUpperCase()} code here...\n// Real-time synchronization active.`
+                    : 'Write your document text here...\nEverything is synchronized in real time without conflicts.'
+                }
+                className={`flex-1 min-w-0 w-full min-h-[350px] bg-transparent outline-none resize-none leading-7 focus-visible:ring-0 ${
+                  mode === 'code'
+                    ? 'font-mono text-xs sm:text-sm text-[#eee9dc] placeholder:text-white/35 font-normal'
+                    : 'font-sans text-[15px] sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
+                }`}
+                spellCheck={mode === 'text'}
+                autoFocus
+              />
+              </>}
+            </div>
           </div>
-          <div className="mt-auto flex items-center justify-between border-t border-[var(--line)] pt-3 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)] xl:hidden">
-            <span>{wordCount} words <span className="mx-1">·</span> {lineCount} lines</span>
-            <button type="button" onClick={() => setIsMobileMenuOpen(true)} className="flex items-center gap-1.5"><Icons.Info size={12} /> Info &amp; collaborators</button>
-          </div>
+
+          {/* Floating Minimal Bottom Diagnostics & Reading Stats Pill */}
+          <footer className="shrink-0 px-3 sm:px-6 py-2 border-t border-[var(--line)] bg-[var(--paper)] text-[9px] text-[var(--muted)] font-mono select-none flex items-center justify-between transition-colors gap-2 overflow-x-auto uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <span>{wordCount} words</span>
+              <span>•</span>
+              <span className="hidden xs:inline">{text.length} chars</span>
+              <span className="hidden xs:inline">•</span>
+              <span>~{readingTimeMins}m read</span>
+              <span>•</span>
+              <span>{lineCount} lines</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="hidden md:inline">{rga.getNodes().length} CRDT nodes</span>
+              <span className="hidden md:inline">•</span>
+              <span className="hidden md:inline">{tombstoneCount} tombstones</span>
+              <span className="hidden md:inline">•</span>
+              <span className="hidden sm:inline">Site: {siteId || 'init'}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                SYNCED
+              </span>
+            </div>
+          </footer>
         </main>
 
-        <aside className="hidden xl:flex min-h-0 flex-col border-l border-[var(--line)] px-4 py-6">
+        <aside className="hidden xl:flex w-64 sm:w-72 shrink-0 min-h-0 flex-col justify-between border-l border-[var(--line)] px-4 py-6 overflow-y-auto">
           <div className="flex min-h-0 flex-1 flex-col gap-7">
             <section>
               <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--muted)]">06 / Collaborators</div>
@@ -1195,26 +1219,6 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
         </aside>
       </div>
-
-      {/* Floating Minimal Bottom Diagnostics & Reading Stats Pill */}
-      <footer className="sticky bottom-0 z-20 px-3 sm:px-6 py-2 border-t border-[var(--line)] bg-[var(--paper)] text-[9px] text-[var(--muted)] font-mono select-none flex items-center justify-between transition-colors gap-2 overflow-x-auto uppercase tracking-wider">
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <span>{wordCount} words</span>
-          <span>•</span>
-          <span className="hidden xs:inline">{text.length} chars</span>
-          <span className="hidden xs:inline">•</span>
-          <span>~{readingTimeMins}m read</span>
-          <span>•</span>
-          <span>{lineCount} lines</span>
-        </div>
-        <div className="hidden md:flex items-center gap-2 shrink-0">
-          <span>{rga.getNodes().length} CRDT nodes</span>
-          <span>•</span>
-          <span>{tombstoneCount} tombstones</span>
-          <span>•</span>
-          <span>Site: {siteId || 'init'}</span>
-        </div>
-      </footer>
 
       {/* Edit Display Name Modal */}
       <Modal

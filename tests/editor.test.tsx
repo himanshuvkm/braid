@@ -164,4 +164,23 @@ describe('Mobile Header De-cluttering and Sidebar Menu', () => {
     expect(html).toContain('Dashboard');
     expect(html).toContain('href="/dashboard"');
   });
+
+  it('renders long document with 80+ lines and full scrollable layout structure', () => {
+    const longLines = Array.from({ length: 80 }, (_, i) => `Line ${i + 1}: Collaborative editing in Braid with pure RGA CRDT algorithm for distributed consistency.`).join('\n');
+    const html = renderToString(
+      <Editor
+        documentId="doc-long-test"
+        userName="Himanshu"
+        siteId="site-long-1"
+        initialContent={longLines}
+      />
+    );
+
+    expect(html).toContain('80');
+    expect(html).toContain('lines');
+    expect(html).toContain('overflow-y-auto');
+    expect(html).toContain('min-h-0');
+    expect(html).toContain('Line 1:');
+    expect(html).toContain('Line 80:');
+  });
 });
