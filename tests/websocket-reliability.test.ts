@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SyncClient, type ConnectionStatus, type WebSocketLike } from '../lib/sync-client';
 import { getWebSocketUrl, validateWebSocketUrl } from '../lib/ws-config';
+import { RGA } from '../crdt-engine/src/index';
 
 class MockWebSocket implements WebSocketLike {
   readyState = 0; // CONNECTING
@@ -82,7 +83,7 @@ describe('WebSocket Reliability, Diagnostics, & URL Resolution', () => {
   });
 
   describe('Connection Lifecycle States', () => {
-    it('transitions connecting -> connected -> reconnecting on server close', () => {
+    it('waits for room sync before transitioning from connecting to connected', () => {
       const statusLog: ConnectionStatus[] = [];
       let activeSocket: MockWebSocket | null = null;
 
@@ -110,9 +111,19 @@ describe('WebSocket Reliability, Diagnostics, & URL Resolution', () => {
 
       // 2. Server Open
       activeSocket!.simulateOpen();
-      expect(client.connectionStatus).toBe('connected');
+      expect(client.connectionStatus).toBe('connecting');
+      const queuedOp = new RGA('site-test-1').localInsert(null, 'x');
+      client.sendOperation(queuedOp);
+      expect(client.pendingOutgoingCount).toBe(1);
+      expect(activeSocket!.sentMessages).toHaveLength(1);
 
-      // 3. Server Close (with network available)
+      // 3. Room joined and initial sync completed
+      activeSocket!.simulateMessage({ type: 'sync', docId: 'doc-test-1', history: [], peers: [] });
+      expect(client.connectionStatus).toBe('connected');
+      expect(client.pendingOutgoingCount).toBe(0);
+      expect(JSON.parse(activeSocket!.sentMessages[1]).type).toBe('op');
+
+      // 4. Server Close (with network available)
       activeSocket!.close(1006, 'Server restart');
       expect(client.connectionStatus).toBe('reconnecting');
 

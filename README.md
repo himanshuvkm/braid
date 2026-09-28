@@ -239,6 +239,8 @@ For complete, step-by-step production deployment instructions, please refer to t
    - `AUTH_SECRET=your-production-secret`
    - `NEXT_PUBLIC_WS_URL=wss://your-sync-server-domain.com`
 
+   Set `NEXT_PUBLIC_WS_URL` in the web app's build environment before building and redeploy after changing it. The browser connects directly to this persistent sync service; the Next.js app does not provide a `/ws` proxy. Configure the sync service's `ALLOWED_ORIGINS` with the exact production web app origin.
+
 ---
 
 ## 📄 License

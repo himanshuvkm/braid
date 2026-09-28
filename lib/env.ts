@@ -45,7 +45,7 @@ export function validateEnvironment(): EnvValidationResult {
       }
     }
   } else if (isProduction) {
-    warnings.push('NEXT_PUBLIC_WS_URL is not set in production. Client will attempt same-origin /ws connection.');
+    errors.push('NEXT_PUBLIC_WS_URL is required in production and must point to the deployed Braid sync server.');
   }
 
   const port = parseInt(process.env.PORT || '4444', 10);

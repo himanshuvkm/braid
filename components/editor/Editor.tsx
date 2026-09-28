@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { RGA } from '../../crdt-engine/src/index';
 import type { Op, OpId } from '../../crdt-engine/src/index';
@@ -16,7 +16,6 @@ import { Input } from '../ui/input';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { ShareModal } from '../ui/share-modal';
 import { parseDocument, parseInlineFormatting, type BlockType } from '../../lib/document-model';
-import { TechnicalLabel } from '../design';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'offline' | 'error';
 export type EditorMode = 'text' | 'code';
@@ -105,6 +104,61 @@ function createRGAWithContent(siteId: string, initialContent?: string): RGA {
     }
   }
   return rga;
+}
+
+function diffText(previous: string, next: string) {
+  const previousChars = Array.from(previous);
+  const nextChars = Array.from(next);
+  let prefix = 0;
+  while (prefix < previousChars.length && prefix < nextChars.length && previousChars[prefix] === nextChars[prefix]) prefix++;
+  let previousEnd = previousChars.length;
+  let nextEnd = nextChars.length;
+  while (previousEnd > prefix && nextEnd > prefix && previousChars[previousEnd - 1] === nextChars[nextEnd - 1]) {
+    previousEnd--;
+    nextEnd--;
+  }
+  return { nextChars, prefix, previousEnd, nextEnd };
+}
+
+function codePointOffsetToUtf16(text: string, offset: number): number {
+  return Array.from(text).slice(0, offset).join('').length;
+}
+
+function utf16OffsetToCodePoint(text: string, offset: number): number {
+  let codePointOffset = 0;
+  let utf16Offset = 0;
+  for (const char of text) {
+    if (utf16Offset + char.length > offset) break;
+    utf16Offset += char.length;
+    codePointOffset++;
+  }
+  return codePointOffset;
+}
+
+function mapSelectionAfterTextChange(previous: string, next: string, start: number, end: number) {
+  const diff = diffText(previous, next);
+  const delta = (diff.nextEnd - diff.prefix) - (diff.previousEnd - diff.prefix);
+  const mapOffset = (offset: number) => {
+    const pointOffset = utf16OffsetToCodePoint(previous, offset);
+    const mapped = pointOffset <= diff.prefix
+      ? pointOffset
+      : pointOffset >= diff.previousEnd
+        ? pointOffset + delta
+        : diff.nextEnd;
+    return codePointOffsetToUtf16(next, mapped);
+  };
+  return { start: mapOffset(start), end: mapOffset(end) };
+}
+
+function connectionLabel(status: ConnectionStatus): string {
+  switch (status) {
+    case 'connected': return 'Synced';
+    case 'connecting': return 'Connecting';
+    case 'reconnecting': return 'Reconnecting';
+    case 'offline': return 'Offline';
+    case 'error': return 'Sync Error';
+    default: return 'Offline';
+  }
 }
 
 function InlinePreviewText({ content }: { content: string }) {
@@ -248,22 +302,24 @@ export const Editor: React.FC<EditorProps> = ({
   const [mode, setMode] = useState<EditorMode>('text');
   const [codeLanguage, setCodeLanguage] = useState<string>('javascript');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  // Capture one seed per document so saved-content updates cannot replace live CRDT state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial content changes with documentId
+  const initialRgaContent = useMemo(() => initialContent, [documentId]);
   const [selectedBlockType, setSelectedBlockType] = useState<BlockType>(
     () => parseDocument(initialContent).blocks[0]?.type ?? 'paragraph'
   );
   const [isPreview, setIsPreview] = useState(false);
 
-  const rga = useMemo(
-    () => createRGAWithContent(siteId || '', initialContent),
-    [siteId, initialContent]
-  );
+  // Seed from the per-document snapshot only; site hydration can rebuild without losing content.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is stable for this document
+  const rga = useMemo(() => createRGAWithContent(siteId || '', initialRgaContent), [documentId, siteId]);
 
-  const [text, setText] = useState<string>(() => rga.getText() || initialContent);
+  const [text, setText] = useState<string>(() => rga.getText());
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [pendingOpsCount, setPendingOpsCount] = useState<number>(0);
   const [tombstoneCount, setTombstoneCount] = useState<number>(0);
-  const [copyFeedback, setCopyFeedback] = useState<'id' | 'link' | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<'id' | null>(null);
   const [showPeersDropdown, setShowPeersDropdown] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -311,62 +367,146 @@ export const Editor: React.FC<EditorProps> = ({
   const updateMetricsRef = useRef(updateMetrics);
   const getTokenRef = useRef(getToken);
   const rgaRef = useRef(rga);
+  const activeUserNameRef = useRef(activeUserName);
+  const userColorRef = useRef(userColor);
+  const pendingSelectionRef = useRef<{ start: number; end: number; direction: 'forward' | 'backward' | 'none'; focus?: boolean } | null>(null);
+  const isComposingRef = useRef(false);
+  const copyCodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onContentChangeRef.current = onContentChange;
     onOperationRef.current = onOperation;
     updateMetricsRef.current = updateMetrics;
     getTokenRef.current = getToken;
-    rgaRef.current = rga;
+    activeUserNameRef.current = activeUserName;
+    userColorRef.current = userColor;
   });
 
-  // Auto-resize textarea height to accommodate long content
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.max(450, textareaRef.current.scrollHeight)}px`;
+  useLayoutEffect(() => {
+    if (rgaRef.current !== rga) {
+      rgaRef.current = rga;
+      setText(rga.getText());
     }
-  }, [text, mode]);
+  }, [rga]);
+
+  useLayoutEffect(() => {
+    const selection = pendingSelectionRef.current;
+    const textarea = textareaRef.current;
+    if (!selection || !textarea) return;
+    if (selection.focus) textarea.focus();
+    textarea.setSelectionRange(selection.start, selection.end, selection.direction);
+    pendingSelectionRef.current = null;
+  }, [text]);
+
+  const resizeTextarea = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    const scrollContainer = textarea.parentElement?.parentElement;
+    const scrollTop = scrollContainer?.scrollTop;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.max(450, textarea.scrollHeight)}px`;
+    if (scrollContainer && scrollTop !== undefined) scrollContainer.scrollTop = scrollTop;
+  }, []);
+
+  // Resize before paint when text changes remotely or through editor controls.
+  useLayoutEffect(() => {
+    resizeTextarea(textareaRef.current);
+  }, [text, mode, isPreview, isJoined, resizeTextarea]);
+
+  // Re-measure only when wrapping width changes; height writes do not retrigger it.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || isPreview || !isJoined) return;
+
+    let lastWidth = textarea.clientWidth;
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+        if (textarea.clientWidth !== lastWidth) {
+          lastWidth = textarea.clientWidth;
+          resizeTextarea(textarea);
+        }
+      })
+      : null;
+    observer?.observe(textarea);
+    let active = true;
+    document.fonts?.ready.then(() => {
+      if (active) resizeTextarea(textarea);
+    });
+    return () => {
+      active = false;
+      observer?.disconnect();
+    };
+  }, [isPreview, isJoined, resizeTextarea]);
 
   // SyncClient connection setup - ONLY connects if user is joined with a valid display name
   useEffect(() => {
-    if (!siteId || !isJoined || !activeUserName) return;
+    if (!siteId || !isJoined) return;
 
-    const wsUrl = getWebSocketUrl(propServerUrl);
+    let wsUrl: string;
+    try {
+      wsUrl = getWebSocketUrl(propServerUrl);
+    } catch (error) {
+      console.error('[Editor] WebSocket sync is not configured:', error);
+      // The production endpoint is only resolved after the user joins the room.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setConnectionStatus('error');
+      return;
+    }
 
     const client = new SyncClient({
       serverUrl: wsUrl,
       docId: documentId,
       siteId,
-      name: activeUserName,
-      color: userColor,
+      name: activeUserNameRef.current,
+      color: userColorRef.current,
       userId,
       sessionId,
       token: wsToken,
       getToken: () => getTokenRef.current(),
       autoConnect: true,
       onRemoteOp: (op: Op) => {
-        client.applyRemoteOp(rgaRef.current, op);
+        const currentRga = rgaRef.current;
+        const previousText = currentRga.getText();
+        const textarea = textareaRef.current;
+        const previousSelection = textarea
+          ? { start: textarea.selectionStart, end: textarea.selectionEnd, direction: textarea.selectionDirection }
+          : null;
+        client.applyRemoteOp(currentRga, op);
+        const nextText = currentRga.getText();
+        if (previousSelection && previousText !== nextText) {
+          const selection = mapSelectionAfterTextChange(previousText, nextText, previousSelection.start, previousSelection.end);
+          pendingSelectionRef.current = { ...selection, direction: previousSelection.direction };
+        }
         updateMetricsRef.current();
-        onContentChangeRef.current?.(rgaRef.current.getText());
+        onContentChangeRef.current?.(nextText);
       },
       onSyncComplete: (history: readonly Op[]) => {
-        client.applyHistory(rgaRef.current, history);
+        const currentRga = rgaRef.current;
+        const previousText = currentRga.getText();
+        client.applyHistory(currentRga, history);
+        const nextText = currentRga.getText();
+        const textarea = textareaRef.current;
+        if (textarea && previousText !== nextText) {
+          const selection = mapSelectionAfterTextChange(previousText, nextText, textarea.selectionStart, textarea.selectionEnd);
+          pendingSelectionRef.current = { ...selection, direction: textarea.selectionDirection };
+        }
         updateMetricsRef.current();
-        onContentChangeRef.current?.(rgaRef.current.getText());
+        onContentChangeRef.current?.(nextText);
       },
       onPresenceChange: (activePeers: PeerInfo[]) => {
         setPeers(activePeers.filter((p) => p.siteId !== siteId));
       },
       onStatusChange: (status: ConnectionStatus) => {
         setConnectionStatus(status);
-        if (client) {
-          setPendingOpsCount(client.pendingOutgoingCount);
+        const activeClient = syncClientRef.current;
+        if (activeClient) {
+          setPendingOpsCount(activeClient.pendingOutgoingCount);
         }
       },
     });
 
     syncClientRef.current = client;
+    setPendingOpsCount(client.pendingOutgoingCount);
 
     return () => {
       client.disconnect();
@@ -376,8 +516,6 @@ export const Editor: React.FC<EditorProps> = ({
     documentId,
     siteId,
     isJoined,
-    activeUserName,
-    userColor,
     propServerUrl,
     userId,
     sessionId,
@@ -394,47 +532,23 @@ export const Editor: React.FC<EditorProps> = ({
       const currentRga = rgaRef.current;
       const oldText = currentRga.getText();
       if (newText === oldText) return;
+      const { nextChars, prefix, previousEnd, nextEnd } = diffText(oldText, newText);
+      const deleteCount = previousEnd - prefix;
+      const insertChars = nextChars.slice(prefix, nextEnd);
 
-      // 1. Calculate common prefix
-      let prefix = 0;
-      while (
-        prefix < oldText.length &&
-        prefix < newText.length &&
-        oldText[prefix] === newText[prefix]
-      ) {
-        prefix++;
+      // Snapshot the visible targets once so large deletions do not rescan the RGA per character.
+      const deleteTargets = currentRga.getNodes().filter((node) => !node.deleted).slice(prefix, prefix + deleteCount);
+      for (const node of deleteTargets) {
+        const op = currentRga.localDelete(node.id);
+        syncClientRef.current?.sendOperation(op);
+        onOperationRef.current?.(op);
       }
 
-      // 2. Calculate common suffix
-      let oldSuffix = oldText.length - 1;
-      let newSuffix = newText.length - 1;
-      while (
-        oldSuffix >= prefix &&
-        newSuffix >= prefix &&
-        oldText[oldSuffix] === newText[newSuffix]
-      ) {
-        oldSuffix--;
-        newSuffix--;
-      }
-
-      const deleteCount = oldSuffix - prefix + 1;
-      const insertText = newText.slice(prefix, newSuffix + 1);
-
-      // Apply deletes
-      for (let i = 0; i < deleteCount; i++) {
-        const targetId = currentRga.idAtVisibleOffset(prefix + 1);
-        if (targetId) {
-          const op = currentRga.localDelete(targetId);
-          syncClientRef.current?.sendOperation(op);
-          onOperationRef.current?.(op);
-        }
-      }
-
-      // Apply inserts
-      for (let i = 0; i < insertText.length; i++) {
-        const char = insertText[i];
-        const afterId = prefix + i === 0 ? null : currentRga.idAtVisibleOffset(prefix + i);
+      // Chain consecutive inserts to avoid repeatedly scanning the RGA.
+      let afterId = prefix === 0 ? null : currentRga.idAtVisibleOffset(prefix);
+      for (const char of insertChars) {
         const op = currentRga.localInsert(afterId, char);
+        afterId = op.id;
         syncClientRef.current?.sendOperation(op);
         onOperationRef.current?.(op);
       }
@@ -445,20 +559,21 @@ export const Editor: React.FC<EditorProps> = ({
     [siteId, isJoined, isReadOnly]
   );
 
-  // Apply starter template if stored in sessionStorage
+  // Preserve starter templates until an editable, joined RGA can accept them.
   useEffect(() => {
-    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && siteId && isJoined && !isReadOnly) {
       try {
         const storedTemplate = sessionStorage.getItem(`braid:template:${documentId}`);
         if (storedTemplate && (!initialContent || initialContent.trim() === '')) {
-          sessionStorage.removeItem(`braid:template:${documentId}`);
           applyTextChange(storedTemplate);
+          sessionStorage.removeItem(`braid:template:${documentId}`);
         }
       } catch {}
     }
-  }, [documentId, initialContent, applyTextChange]);
+  }, [documentId, initialContent, siteId, isJoined, isReadOnly, applyTextChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isReadOnly || isComposingRef.current || e.nativeEvent.isComposing) return;
     if ((e.metaKey || e.ctrlKey) && mode === 'text') {
       const shortcut = e.key.toLowerCase();
       const inlineFormats: Record<string, [string, string]> = {
@@ -471,19 +586,15 @@ export const Editor: React.FC<EditorProps> = ({
       }
     }
     // Tab key support for indentation in Code Mode
-    if (e.key === 'Tab') {
+    if (mode === 'code' && e.key === 'Tab') {
       e.preventDefault();
       const target = e.currentTarget;
       const start = target.selectionStart;
       const end = target.selectionEnd;
       const val = target.value;
       const newVal = val.substring(0, start) + '  ' + val.substring(end);
+      pendingSelectionRef.current = { start: start + 2, end: start + 2, direction: 'none', focus: true };
       applyTextChange(newVal);
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
-        }
-      }, 0);
       return;
     }
 
@@ -498,12 +609,8 @@ export const Editor: React.FC<EditorProps> = ({
         e.preventDefault();
         const indent = match[1];
         const newVal = val.substring(0, start) + '\n' + indent + val.substring(start);
+        pendingSelectionRef.current = { start: start + 1 + indent.length, end: start + 1 + indent.length, direction: 'none', focus: true };
         applyTextChange(newVal);
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 1 + indent.length;
-          }
-        }, 0);
         return;
       }
     }
@@ -514,23 +621,27 @@ export const Editor: React.FC<EditorProps> = ({
     if (!input || mode !== 'text' || isReadOnly) return;
     const start = input.selectionStart;
     const end = input.selectionEnd;
-    const selected = text.slice(start, end);
-    const next = `${text.slice(0, start)}${prefix}${selected}${suffix}${text.slice(end)}`;
+    const value = input.value;
+    const selected = value.slice(start, end);
+    const next = `${value.slice(0, start)}${prefix}${selected}${suffix}${value.slice(end)}`;
+    pendingSelectionRef.current = {
+      start: start + prefix.length,
+      end: end + prefix.length,
+      direction: input.selectionDirection,
+      focus: true,
+    };
     applyTextChange(next);
-    requestAnimationFrame(() => {
-      input.focus();
-      input.setSelectionRange(start + prefix.length, end + prefix.length);
-    });
-  }, [applyTextChange, isReadOnly, mode, text]);
+  }, [applyTextChange, isReadOnly, mode]);
 
   const applyBlockFormat = useCallback((type: BlockType) => {
     const input = textareaRef.current;
     if (!input || mode !== 'text' || isReadOnly) return;
     const start = input.selectionStart;
-    const lineStart = text.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
-    const lineEndAt = text.indexOf('\n', start);
-    const lineEnd = lineEndAt < 0 ? text.length : lineEndAt;
-    const line = text.slice(lineStart, lineEnd);
+    const value = input.value;
+    const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const lineEndAt = value.indexOf('\n', start);
+    const lineEnd = lineEndAt < 0 ? value.length : lineEndAt;
+    const line = value.slice(lineStart, lineEnd);
     const block = parseDocument(line).blocks[0];
     const body = block?.content ?? line;
     const prefix: Record<BlockType, string> = {
@@ -543,37 +654,32 @@ export const Editor: React.FC<EditorProps> = ({
     if (block?.type === type) return;
     if (type === 'divider') replacement = '---';
     setSelectedBlockType(type);
-    const next = `${text.slice(0, lineStart)}${replacement}${text.slice(lineEnd)}`;
+    const next = `${value.slice(0, lineStart)}${replacement}${value.slice(lineEnd)}`;
+    const bodyOffset = Math.max(0, start - lineStart - Math.max(0, line.indexOf(body)));
+    const caret = lineStart + Math.min(replacement.length, (prefix[type]?.length ?? 0) + Math.min(bodyOffset, body.length));
+    pendingSelectionRef.current = { start: caret, end: caret, direction: 'none', focus: true };
     applyTextChange(next);
-    requestAnimationFrame(() => {
-      input.focus();
-      const caret = lineStart + Math.min(replacement.length, start - lineStart + replacement.length - line.length);
-      input.setSelectionRange(caret, caret);
-    });
-  }, [applyTextChange, isReadOnly, mode, text]);
+  }, [applyTextChange, isReadOnly, mode]);
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2000);
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedCode(true);
+        if (copyCodeTimeoutRef.current) clearTimeout(copyCodeTimeoutRef.current);
+        copyCodeTimeoutRef.current = setTimeout(() => setCopiedCode(false), 2000);
+      } catch {}
     }
   };
 
-  const handleCopyId = () => {
+  const handleCopyId = async () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(documentId);
-      setCopyFeedback('id');
-      setTimeout(() => setCopyFeedback(null), 2000);
-    }
-  };
-
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined' && navigator.clipboard) {
-      const url = `${window.location.origin}/${encodeURIComponent(documentId)}`;
-      navigator.clipboard.writeText(url);
-      setCopyFeedback('link');
-      setTimeout(() => setCopyFeedback(null), 2000);
+      try {
+        await navigator.clipboard.writeText(documentId);
+        setCopyFeedback('id');
+        if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+        copyFeedbackTimeoutRef.current = setTimeout(() => setCopyFeedback(null), 2000);
+      } catch {}
     }
   };
 
@@ -589,6 +695,21 @@ export const Editor: React.FC<EditorProps> = ({
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => () => {
+    if (copyCodeTimeoutRef.current) clearTimeout(copyCodeTimeoutRef.current);
+    if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+  }, []);
+
+  // Lock the page behind the mobile drawer, then restore its prior scroll behavior.
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileMenuOpen]);
 
   // Keyboard shortcut: Escape to close mobile menu
   useEffect(() => {
@@ -1123,7 +1244,14 @@ export const Editor: React.FC<EditorProps> = ({
           {/* Scrollable Document Area */}
           <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 xl:p-8 flex flex-col">
             {/* Unified Editor Surface */}
-            <div className={`min-h-full flex-1 flex items-start gap-2 sm:gap-3 w-full min-w-0 border border-[var(--line)] p-4 sm:p-6 ${mode === 'code' ? 'bg-[#151515] text-[#eee9dc]' : 'bg-[var(--surface)] text-[var(--ink)]'}`}>
+            <div
+              onClick={(e) => {
+                if (isPreview || !textareaRef.current || !(e.target instanceof Element)) return;
+                if (e.target.closest('textarea, a')) return;
+                textareaRef.current.focus();
+              }}
+              className={`min-h-full shrink-0 flex items-start gap-2 sm:gap-3 w-full min-w-0 border border-[var(--line)] p-4 sm:p-6 ${mode === 'code' ? 'bg-[#151515] text-[#eee9dc]' : 'bg-[var(--surface)] text-[var(--ink)]'}`}
+            >
               {mode === 'text' && isPreview ? (
                 <DocumentPreview content={text} />
               ) : <>
@@ -1142,6 +1270,8 @@ export const Editor: React.FC<EditorProps> = ({
               <textarea
                 ref={textareaRef}
                 value={text}
+                readOnly={isReadOnly}
+                wrap={mode === 'code' ? 'off' : 'soft'}
                 onSelect={(e) => {
                   const input = e.currentTarget;
                   const lineStart = text.lastIndexOf('\n', Math.max(0, input.selectionStart - 1)) + 1;
@@ -1149,7 +1279,19 @@ export const Editor: React.FC<EditorProps> = ({
                   const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt);
                   setSelectedBlockType(parseDocument(line).blocks[0]?.type ?? 'paragraph');
                 }}
-                onChange={(e) => applyTextChange(e.target.value)}
+                onChange={(e) => {
+                  resizeTextarea(e.currentTarget);
+                  if (isComposingRef.current) {
+                    setText(e.currentTarget.value);
+                  } else {
+                    applyTextChange(e.currentTarget.value);
+                  }
+                }}
+                onCompositionStart={() => { isComposingRef.current = true; }}
+                onCompositionEnd={(e) => {
+                  isComposingRef.current = false;
+                  applyTextChange(e.currentTarget.value);
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   mode === 'code'
@@ -1162,6 +1304,7 @@ export const Editor: React.FC<EditorProps> = ({
                     : 'font-sans text-[15px] sm:text-base text-[var(--text)] placeholder-[var(--text-subtle)] font-normal'
                 }`}
                 spellCheck={mode === 'text'}
+                style={{ minHeight: 450, overflowY: 'hidden', whiteSpace: mode === 'code' ? 'pre' : 'pre-wrap' }}
                 autoFocus
               />
               </>}
@@ -1186,9 +1329,25 @@ export const Editor: React.FC<EditorProps> = ({
               <span className="hidden md:inline">•</span>
               <span className="hidden sm:inline">Site: {siteId || 'init'}</span>
               <span className="hidden sm:inline">•</span>
-              <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                SYNCED
+              <span className={`inline-flex items-center gap-1 font-semibold ${
+                connectionStatus === 'connected'
+                  ? 'text-emerald-500'
+                  : connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
+                    ? 'text-amber-500'
+                    : connectionStatus === 'offline'
+                      ? 'text-amber-600'
+                      : 'text-rose-500'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  connectionStatus === 'connected'
+                    ? 'bg-emerald-500'
+                    : connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
+                      ? 'bg-amber-500 animate-pulse'
+                      : connectionStatus === 'offline'
+                        ? 'bg-amber-600'
+                        : 'bg-rose-500'
+                }`} />
+                {connectionLabel(connectionStatus).toUpperCase()}
               </span>
             </div>
           </footer>
@@ -1477,7 +1636,7 @@ export const Editor: React.FC<EditorProps> = ({
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current" />
                     <span>
-                      {connectionStatus === 'connected' ? 'Synced' : connectionStatus === 'connecting' ? 'Connecting' : connectionStatus === 'reconnecting' ? 'Reconnecting' : 'Offline'}
+                      {connectionLabel(connectionStatus)}
                     </span>
                   </span>
                 </div>

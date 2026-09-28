@@ -322,6 +322,7 @@ export class SyncClient {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentReconnectDelay: number;
   private intentionallyClosed = false;
+  private hasJoinedRoom = false;
   private joinedPromise: Promise<void> | null = null;
   private resolveJoined: (() => void) | null = null;
   private currentToken: string | undefined;
@@ -420,6 +421,7 @@ export class SyncClient {
     }
 
     this.intentionallyClosed = false;
+    this.hasJoinedRoom = false;
     this.resetJoinedPromise();
     this.setStatus('connecting');
 
@@ -481,10 +483,7 @@ export class SyncClient {
       ws.onopen = () => {
         if (this.socket !== ws) return;
         console.log(`[SyncClient] websocket opened (${this.clientId}:${connId})`);
-        this.setStatus('connected');
-        this.currentReconnectDelay = this.config.reconnectIntervalMs;
         this.sendJoin();
-        this.flushOutgoingQueue();
       };
 
       ws.onmessage = (event: { data: unknown }) => {
@@ -502,6 +501,7 @@ export class SyncClient {
       ws.onclose = (event?: { code?: number; reason?: string }) => {
         if (this.socket !== ws) return;
         this.socket = null;
+        this.hasJoinedRoom = false;
         this.peers.clear();
         const code = event?.code ?? 1006;
         console.log(`[SyncClient] websocket closed (${this.clientId}:${connId}) code=${code} reason=${event?.reason || 'none'}`);
@@ -589,7 +589,7 @@ export class SyncClient {
    * If disconnected, operation is queued and sent automatically upon reconnection.
    */
   sendOperation(op: Op): void {
-    if (!this.isConnected || !this.socket || this.socket.readyState !== 1 /* OPEN */) {
+    if (!this.hasJoinedRoom || !this.isConnected || !this.socket || this.socket.readyState !== 1 /* OPEN */) {
       this.outgoingQueue.push(op);
       return;
     }
@@ -701,6 +701,9 @@ export class SyncClient {
         break;
 
       case 'sync':
+        this.hasJoinedRoom = true;
+        this.setStatus('connected');
+        this.currentReconnectDelay = this.config.reconnectIntervalMs;
         this.resolveJoined?.();
         this.peers.clear();
         if (msg.peers) {
@@ -714,6 +717,7 @@ export class SyncClient {
         if (msg.history) {
           this.config.onSyncComplete?.(msg.history, []);
         }
+        this.flushOutgoingQueue();
         break;
 
       case 'presence':
@@ -750,6 +754,7 @@ export class SyncClient {
         if (msg.code === 401) {
           console.warn('[SyncClient] authentication rejected (code: 401)');
           this.intentionallyClosed = true;
+          this.hasJoinedRoom = false;
           if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
@@ -764,6 +769,7 @@ export class SyncClient {
         } else if (msg.code === 403) {
           console.warn('[SyncClient] project authorization rejected (code: 403)');
           this.intentionallyClosed = true;
+          this.hasJoinedRoom = false;
           if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
@@ -782,6 +788,7 @@ export class SyncClient {
 
   disconnect(): void {
     this.intentionallyClosed = true;
+    this.hasJoinedRoom = false;
     if (typeof window !== 'undefined') {
       window.removeEventListener('online', this.handleOnline);
       window.removeEventListener('offline', this.handleOffline);

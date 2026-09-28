@@ -8,9 +8,9 @@ export function getWebSocketUrl(propUrl?: string): string {
 
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction && typeof window !== 'undefined') {
-    // In production, fallback to standard same-origin WebSocket path rather than hardcoded 4444
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws`;
+    throw new Error(
+      'NEXT_PUBLIC_WS_URL must point to the deployed Braid sync server in production.'
+    );
   }
 
   // Local development default
