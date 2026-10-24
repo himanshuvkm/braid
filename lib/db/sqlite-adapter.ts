@@ -277,7 +277,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     const id = data.id || `proj-${Math.random().toString(36).substring(2, 10)}`;
     const now = Date.now();
     const name = data.name?.trim() || 'Untitled Document';
-    const content = data.content ?? '# Untitled Document\n\nStart writing, or type / for commands...';
+    const content = data.content ?? '';
 
     const insertProject = this.db.prepare(`
       INSERT INTO projects (id, owner_id, name, content, created_at, updated_at)

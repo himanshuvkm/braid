@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const project = await createProject({
       ownerId: user.id,
       name: name || 'Untitled Document',
-      content: content || '# Untitled Document\n\nStart writing, or type / for commands...',
+      content: content ?? '',
     });
 
     return NextResponse.json({ project }, { status: 201 });

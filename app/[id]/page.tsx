@@ -34,7 +34,7 @@ export default async function DocumentPage(props: PageProps) {
     project = {
       id: docId,
       name: documentTitle,
-      content: `# ${documentTitle}\n\nStart writing, or type / for commands...`,
+      content: '',
       owner_id: user.id,
       created_at: now,
       updated_at: now,

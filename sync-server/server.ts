@@ -230,6 +230,7 @@ export async function defaultAuthorizer(params: {
 export class SyncServer {
   private rooms: Map<string, Set<ClientConnection>> = new Map();
   private docHistory: Map<string, Op[]> = new Map();
+  private roomInitialization: Map<string, Promise<void>> = new Map();
   private siteClocks: Map<string, Map<string, number>> = new Map(); // docId -> (siteId -> highest counter)
   private authorizer: AuthorizerFn;
   private sessionCheckInterval?: NodeJS.Timeout;
@@ -279,6 +280,34 @@ export class SyncServer {
         }
       }, 30000);
       this.sessionCheckInterval.unref?.();
+    }
+  }
+
+  /** Load persisted content once before exposing a room to clients. */
+  private async ensureRoomInitialized(docId: string): Promise<void> {
+    if (this.docHistory.has(docId)) return;
+
+    let initialization = this.roomInitialization.get(docId);
+    if (!initialization) {
+      initialization = (async () => {
+        let history: Op[] = [];
+        try {
+          const project = await getProject(docId);
+          if (project?.content) history = textToBaselineOps(project.content);
+        } catch {
+          // Keep the room available with empty history if storage is unavailable.
+        }
+
+        this.docHistory.set(docId, history);
+        if (!this.siteClocks.has(docId)) this.siteClocks.set(docId, new Map());
+        if (!this.rooms.has(docId)) this.rooms.set(docId, new Set());
+      })();
+      this.roomInitialization.set(docId, initialization);
+    }
+
+    await initialization;
+    if (this.roomInitialization.get(docId) === initialization) {
+      this.roomInitialization.delete(docId);
     }
   }
 
@@ -430,24 +459,7 @@ export class SyncServer {
     client.role = auth.role;
     client.isReadOnly = auth.readOnly ?? (auth.role === 'VIEWER');
 
-    if (!this.rooms.has(docId)) {
-      this.rooms.set(docId, new Set());
-      this.siteClocks.set(docId, new Map());
-
-      // If document history is not initialized, check for persisted database snapshot
-      if (!this.docHistory.has(docId)) {
-        try {
-          const project = await getProject(docId);
-          if (project && project.content) {
-            this.docHistory.set(docId, textToBaselineOps(project.content));
-          } else {
-            this.docHistory.set(docId, []);
-          }
-        } catch {
-          this.docHistory.set(docId, []);
-        }
-      }
-    }
+    await this.ensureRoomInitialized(docId);
 
     const room = this.rooms.get(docId)!;
     room.add(client);
@@ -667,6 +679,7 @@ export class SyncServer {
     this.rooms.clear();
     this.docHistory.clear();
     this.siteClocks.clear();
+    this.roomInitialization.clear();
   }
 
   /**
