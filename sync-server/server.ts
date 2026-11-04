@@ -1,6 +1,6 @@
 import type { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
-import { RGA, type Op } from '../crdt-engine/src/index';
+import { RGA, idKey, type Op } from '../crdt-engine/src/index';
 import { getProject, getProjectRole, getSession, updateProjectContent, type ProjectRole } from '../lib/db';
 import { SESSION_COOKIE_NAME } from '../lib/auth';
 import { verifyWebSocketToken } from '../lib/ws-token';
@@ -17,6 +17,7 @@ export type SyncMessage =
   | { type: 'join'; docId: string; siteId: string; name?: string; color?: string; userId?: string; sessionId?: string; token?: string }
   | { type: 'leave'; docId: string; siteId: string }
   | { type: 'op'; docId: string; siteId: string; op: Op }
+  | { type: 'op_ack'; docId: string; opId: Op['id'] }
   | { type: 'sync'; docId: string; history: Op[]; peers: PeerInfo[] }
   | {
       type: 'presence';
@@ -230,6 +231,7 @@ export async function defaultAuthorizer(params: {
 export class SyncServer {
   private rooms: Map<string, Set<ClientConnection>> = new Map();
   private docHistory: Map<string, Op[]> = new Map();
+  private docOpIds: Map<string, Set<string>> = new Map();
   private roomInitialization: Map<string, Promise<void>> = new Map();
   private siteClocks: Map<string, Map<string, number>> = new Map(); // docId -> (siteId -> highest counter)
   private authorizer: AuthorizerFn;
@@ -299,6 +301,7 @@ export class SyncServer {
         }
 
         this.docHistory.set(docId, history);
+        this.docOpIds.set(docId, new Set(history.map((op) => idKey(op.id))));
         if (!this.siteClocks.has(docId)) this.siteClocks.set(docId, new Map());
         if (!this.rooms.has(docId)) this.rooms.set(docId, new Set());
       })();
@@ -525,10 +528,21 @@ export class SyncServer {
 
     try {
       const history = this.docHistory.get(docId);
-      if (history) {
+      if (!history) return;
+
+      const storedIds = this.docOpIds.get(docId) ?? new Set<string>();
+      this.docOpIds.set(docId, storedIds);
+      const opId = idKey(op.id);
+      const alreadyStored = storedIds.has(opId);
+      if (!alreadyStored) {
         history.push(op);
+        storedIds.add(opId);
         this.scheduleSnapshotPersistence(docId, 2000);
       }
+
+      // Confirm only after the operation is in the server's room history.
+      client.send(JSON.stringify({ type: 'op_ack', docId, opId: op.id } satisfies SyncMessage));
+      if (alreadyStored) return;
 
       // Track clock for GC stability
       const siteId = op.id.siteId;
@@ -678,6 +692,7 @@ export class SyncServer {
   reset(): void {
     this.rooms.clear();
     this.docHistory.clear();
+    this.docOpIds.clear();
     this.siteClocks.clear();
     this.roomInitialization.clear();
   }

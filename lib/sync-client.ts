@@ -316,7 +316,7 @@ export class SyncClient {
     SyncClientConfig;
 
   private status: ConnectionStatus = 'disconnected';
-  private outgoingQueue: Op[] = [];
+  private outgoingQueue = new Map<string, { op: Op; sentConnectionId?: string }>();
   private causalBuffer: CausalBuffer;
   private peers: Map<string, PeerInfo> = new Map();
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -389,7 +389,7 @@ export class SyncClient {
   }
 
   get pendingOutgoingCount(): number {
-    return this.outgoingQueue.length;
+    return this.outgoingQueue.size;
   }
 
   get reconnectDelay(): number {
@@ -589,18 +589,9 @@ export class SyncClient {
    * If disconnected, operation is queued and sent automatically upon reconnection.
    */
   sendOperation(op: Op): void {
-    if (!this.hasJoinedRoom || !this.isConnected || !this.socket || this.socket.readyState !== 1 /* OPEN */) {
-      this.outgoingQueue.push(op);
-      return;
-    }
-
-    const msg: SyncMessage = {
-      type: 'op',
-      docId: this.config.docId,
-      siteId: this.config.siteId,
-      op,
-    };
-    this.sendRaw(msg);
+    const key = idKey(op.id);
+    if (!this.outgoingQueue.has(key)) this.outgoingQueue.set(key, { op });
+    this.flushOutgoingQueue();
   }
 
   /**
@@ -674,22 +665,33 @@ export class SyncClient {
   }
 
   private flushOutgoingQueue(): void {
-    while (this.outgoingQueue.length > 0 && this.isConnected && this.socket?.readyState === 1) {
-      const op = this.outgoingQueue.shift();
-      if (op) {
-        this.sendOperation(op);
+    if (!this.hasJoinedRoom || !this.isConnected || this.socket?.readyState !== 1) return;
+
+    for (const [key, entry] of this.outgoingQueue) {
+      if (entry.sentConnectionId === this.currentConnectionId) continue;
+      const sent = this.sendRaw({
+        type: 'op',
+        docId: this.config.docId,
+        siteId: this.config.siteId,
+        op: entry.op,
+      });
+      if (sent) {
+        entry.sentConnectionId = this.currentConnectionId;
+        this.outgoingQueue.set(key, entry);
       }
     }
   }
 
-  private sendRaw(msg: SyncMessage): void {
+  private sendRaw(msg: SyncMessage): boolean {
     try {
       if (this.socket && this.socket.readyState === 1 /* OPEN */) {
         this.socket.send(JSON.stringify(msg));
+        return true;
       }
     } catch (err) {
       console.error('[SyncClient] Error sending message:', err);
     }
+    return false;
   }
 
   private handleServerMessage(msg: SyncMessage): void {
@@ -718,6 +720,10 @@ export class SyncClient {
           this.config.onSyncComplete?.(msg.history, []);
         }
         this.flushOutgoingQueue();
+        break;
+
+      case 'op_ack':
+        if (msg.opId) this.outgoingQueue.delete(idKey(msg.opId));
         break;
 
       case 'presence':

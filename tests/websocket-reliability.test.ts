@@ -83,6 +83,52 @@ describe('WebSocket Reliability, Diagnostics, & URL Resolution', () => {
   });
 
   describe('Connection Lifecycle States', () => {
+    it('retries operations that were sent but not acknowledged before a reconnect', async () => {
+      const sockets: MockWebSocket[] = [];
+      const client = new SyncClient({
+        serverUrl: 'ws://localhost:4444',
+        docId: 'doc-retry-unacked-op',
+        siteId: 'site-retry',
+        autoConnect: false,
+        reconnectIntervalMs: 5,
+        maxReconnectIntervalMs: 5,
+        WebSocketClass: class extends MockWebSocket {
+          constructor(url: string) {
+            super(url);
+            sockets.push(this);
+          }
+        },
+      });
+
+      await client.connect();
+      sockets[0].simulateOpen();
+      sockets[0].simulateMessage({ type: 'sync', docId: 'doc-retry-unacked-op', history: [], peers: [] });
+
+      const op = new RGA('site-retry').localInsert(null, 'x');
+      client.sendOperation(op);
+      expect(client.pendingOutgoingCount).toBe(1);
+
+      sockets[0].close(1006, 'Network dropped before server acknowledgement');
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(sockets).toHaveLength(2);
+      sockets[1].simulateOpen();
+      sockets[1].simulateMessage({ type: 'sync', docId: 'doc-retry-unacked-op', history: [], peers: [] });
+
+      const retriedOps = sockets[1].sentMessages
+        .map((message) => JSON.parse(message))
+        .filter((message) => message.type === 'op');
+      expect(retriedOps).toHaveLength(1);
+      expect(retriedOps[0].op).toEqual(op);
+
+      sockets[1].simulateMessage({
+        type: 'op_ack',
+        docId: 'doc-retry-unacked-op',
+        opId: { siteId: op.id.siteId, counter: op.id.counter },
+      });
+      expect(client.pendingOutgoingCount).toBe(0);
+      client.disconnect();
+    });
+
     it('waits for room sync before transitioning from connecting to connected', () => {
       const statusLog: ConnectionStatus[] = [];
       let activeSocket: MockWebSocket | null = null;
@@ -120,8 +166,14 @@ describe('WebSocket Reliability, Diagnostics, & URL Resolution', () => {
       // 3. Room joined and initial sync completed
       activeSocket!.simulateMessage({ type: 'sync', docId: 'doc-test-1', history: [], peers: [] });
       expect(client.connectionStatus).toBe('connected');
-      expect(client.pendingOutgoingCount).toBe(0);
       expect(JSON.parse(activeSocket!.sentMessages[1]).type).toBe('op');
+      expect(client.pendingOutgoingCount).toBe(1);
+      activeSocket!.simulateMessage({
+        type: 'op_ack',
+        docId: 'doc-test-1',
+        opId: { siteId: queuedOp.id.siteId, counter: queuedOp.id.counter },
+      });
+      expect(client.pendingOutgoingCount).toBe(0);
 
       // 4. Server Close (with network available)
       activeSocket!.close(1006, 'Server restart');

@@ -360,6 +360,7 @@ describe('SyncServer and SyncClient Integration over WebSockets', () => {
 
     // Wait for queue flush and server relay
     await new Promise((r) => setTimeout(r, 80));
+    expect(clientOffline.pendingOutgoingCount).toBe(0);
 
     // Connect a second client to check if offline ops reached the room
     const rgaObserver = new RGA('site-observer');

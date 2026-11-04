@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { getCurrentUser, SESSION_COOKIE_NAME } from '../../lib/auth';
-import { getProject } from '../../lib/db';
+import { getProject, getProjectRole } from '../../lib/db';
 import { createWebSocketToken } from '../../lib/ws-token';
 import { ProjectEditor } from '../../components/project/ProjectEditor';
 
@@ -41,6 +41,11 @@ export default async function DocumentPage(props: PageProps) {
     };
   }
 
+  // Public room links remain collaborative, while known project members keep
+  // their configured editor or viewer permissions in the interface.
+  const memberRole = loggedInUser && (await getProjectRole(docId, loggedInUser.id));
+  const role = memberRole || 'OWNER';
+
   // 3. Generate initial WebSocket token for zero-waterfall instant CRDT connection
   let initialWsToken: string | undefined;
   try {
@@ -58,7 +63,7 @@ export default async function DocumentPage(props: PageProps) {
     <ProjectEditor
       project={project}
       user={user}
-      role="OWNER"
+      role={role}
       initialWsToken={initialWsToken}
     />
   );
